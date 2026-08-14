@@ -54,7 +54,7 @@ WheelSense 是一套面向电动两轮车的开源自托管遥测系统。它由
 
 - More 页面中的“演示模式”会把车辆、中继、电池、行程、监控和小组件切换到集中维护的稳定模拟数据，避免展示真实车辆信息；关闭后恢复自托管服务数据。
 - Demo Mode 与视觉主题相互独立，可在 Default-Tech、Light/Dark 和 Anime Theme 01 之间切换。Dashboard 的动态指标使用可预测的轻量模拟器，适合截图、录屏和现场演示。
-- Theme Pack 只负责颜色、布局和可选装饰资源。Anime Theme 01 的 Chii 图像是单独标注的第三方素材，使用前请阅读 [`apps/dashboard/assets/themes/anime-01/NOTICE.md`](apps/dashboard/assets/themes/anime-01/NOTICE.md)。
+- Theme Pack 只负责颜色、布局和可选装饰资源。Anime Theme 01 使用 WheelSense 项目的原创角色图像；该图像不属于 MIT 代码许可范围，使用前请阅读 [`apps/dashboard/assets/themes/anime-01/NOTICE.md`](apps/dashboard/assets/themes/anime-01/NOTICE.md)。
 - 移动端服务地址不会写死在公开源码中：可在 App 设置中填写，或在开发构建中使用 [`apps/dashboard/.env.example`](apps/dashboard/.env.example) 的 `EXPO_PUBLIC_SERVER_URL`。
 
 ## 为什么做这个项目

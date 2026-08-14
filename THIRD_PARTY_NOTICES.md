@@ -11,7 +11,7 @@ WheelSense 的自有代码按仓库根目录的 MIT License 发布。下列组�
 | Ionicons / Expo Vector Icons | MIT | https://github.com/ionic-team/ionicons |
 | Gradle Wrapper | Apache-2.0 | https://github.com/gradle/gradle |
 | syssi/esphome-ant-bms（协议字段参考） | Apache-2.0 | https://github.com/syssi/esphome-ant-bms |
-| Anime Theme 01 Chii artwork | MIT exception; see asset notice | `apps/dashboard/assets/themes/anime-01/NOTICE.md` |
+| Anime Theme 01 original character artwork | See asset notice; not part of MIT code license | `apps/dashboard/assets/themes/anime-01/NOTICE.md` |
 
 `apps/dashboard/package-lock.json` 和 `server/composer.lock` 锁定了完整依赖版本。Node 工具链还包含 Apache-2.0、BSD、ISC、MPL-2.0、CC-BY-4.0、0BSD、BlueOak-1.0.0 等许可证的转传依赖。本仓库不提交 `node_modules` 或 Composer `vendor`。
 
@@ -21,4 +21,4 @@ WheelSense 的自有代码按仓库根目录的 MIT License 发布。下列组�
 
 Segway、Ninebot 及其他第三方商标归各自权利人所有。在文档和界面中提及它们仅为说明兼容对象，不表示授权、背书或合作。
 
-Anime Theme 01 的角色图像是 AI 生成、描绘或受 *Chobits* 中 Chii 启发的粉丝素材，不属于本仓库 MIT 代码许可，也不是 Ninebot/Segway 或相关作品权利人的官方素材。该 MIT 例外同时适用于 `apps/dashboard/assets/themes/anime-01/chii-hero.png` 与 `apps/dashboard/android/app/src/main/res/drawable-nodpi/chii_hero.png`。底层角色、作品及相关受保护元素的权利仍归各自权利人所有；本仓库不授予任何相关权利。请仅在获得相应许可的范围内使用；移除这些可选素材后，应用代码仍可构建和运行。
+Anime Theme 01 使用为 WheelSense 项目提供的原创角色图像。图像作为可选主题资源分发，不属于 MIT 代码许可范围；本说明不作超出本仓库现有权利信息的权利主张，也不授予所有权、排他权、公共领域地位或其他底层作品权利。该资源的说明适用于 `apps/dashboard/assets/themes/anime-01/original-heroine.png` 与 `apps/dashboard/android/app/src/main/res/drawable-nodpi/original_heroine.png`。移除这些可选素材后，应用代码仍可构建和运行。

@@ -50,7 +50,7 @@ It is not merely an API response rendered as charts. It addresses the difficult 
 
 - The More page exposes a Demo Mode that switches vehicle, relay, battery, ride, monitor, and widget surfaces to one centralized set of stable synthetic data. Turning it off restores the self-hosted data source.
 - Demo Mode is independent from visual themes. It works with Default-Tech and Light/Dark variants as well as Anime Theme 01; dashboard motion uses a deterministic lightweight simulator suitable for screenshots and live demonstrations.
-- Theme Packs own colors, layout tokens, and optional decoration only. Anime Theme 01's Chii artwork is separately identified third-party material; read [`apps/dashboard/assets/themes/anime-01/NOTICE.md`](apps/dashboard/assets/themes/anime-01/NOTICE.md) before using it.
+- Theme Packs own colors, layout tokens, and optional decoration only. Anime Theme 01 uses original character artwork provided for the WheelSense project; the artwork is outside the MIT-licensed code scope. See [`apps/dashboard/assets/themes/anime-01/NOTICE.md`](apps/dashboard/assets/themes/anime-01/NOTICE.md) before using it.
 - The mobile server URL is never hard-coded in the public source. Enter it in the app settings or use `EXPO_PUBLIC_SERVER_URL` from [`apps/dashboard/.env.example`](apps/dashboard/.env.example) for development builds.
 
 ## Why This Project Exists
