@@ -34,27 +34,19 @@ WheelSense 不运营集中式车辆遥测云。部署者运行自己的 Server�
 
 ## ✨ 项目预览
 
-<!--
-WheelSense Showcase Posters
+<p align="center">
+  <img src="docs/public-assets/wheelsense-overview-widget.png" width="48%" alt="WheelSense Overview and Widget" />
+  <img src="docs/public-assets/wheelsense-rides-battery.png" width="48%" alt="WheelSense Rides and Battery" />
+</p>
 
-后续将在这里加入四张公开宣传海报：
+<p align="center">
+  <img src="docs/public-assets/wheelsense-dashboard-monitor-relay.png" width="48%" alt="WheelSense Dashboard Monitor and Relay" />
+  <img src="docs/public-assets/wheelsense-theme-settings.png" width="48%" alt="WheelSense Theme and Settings" />
+</p>
 
-1. Overview + Widget
-2. Rides + Battery
-3. Dashboard + Monitor + Relay
-4. Theme Center + Settings
-
-预计路径：
-
-docs/public-assets/wheelsense-overview-widget.png
-docs/public-assets/wheelsense-rides-battery.png
-docs/public-assets/wheelsense-dashboard-monitor-relay.png
-docs/public-assets/wheelsense-theme-settings.png
-
-海报最终完成后使用 2 × 2 布局。
--->
-
-> 📸 公开仓库当前暂未随源码发布 UI 截图或宣传海报，以避免引用不存在的图片文件。后续海报会在单独任务中加入；当前可以使用 Demo Mode 运行真实界面。
+> 展示图使用 Demo / synthetic data，并对公开展示所需的身份、位置与监控画面进行了匿名化或演示化处理，不代表真实车辆或真实使用环境。
+>
+> 实际功能与界面请以当前版本和仓库源码为准。
 
 ## ✨ 主要功能
 

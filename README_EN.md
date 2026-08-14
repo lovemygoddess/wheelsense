@@ -34,27 +34,19 @@ WheelSense does not operate a centralized vehicle-telemetry cloud. Each deployer
 
 ## ✨ Project Preview
 
-<!--
-WheelSense Showcase Posters
+<p align="center">
+  <img src="docs/public-assets/wheelsense-overview-widget.png" width="48%" alt="WheelSense Overview and Widget" />
+  <img src="docs/public-assets/wheelsense-rides-battery.png" width="48%" alt="WheelSense Rides and Battery" />
+</p>
 
-Four public showcase posters will be added here later:
+<p align="center">
+  <img src="docs/public-assets/wheelsense-dashboard-monitor-relay.png" width="48%" alt="WheelSense Dashboard Monitor and Relay" />
+  <img src="docs/public-assets/wheelsense-theme-settings.png" width="48%" alt="WheelSense Theme and Settings" />
+</p>
 
-1. Overview + Widget
-2. Rides + Battery
-3. Dashboard + Monitor + Relay
-4. Theme Center + Settings
-
-Planned paths:
-
-docs/public-assets/wheelsense-overview-widget.png
-docs/public-assets/wheelsense-rides-battery.png
-docs/public-assets/wheelsense-dashboard-monitor-relay.png
-docs/public-assets/wheelsense-theme-settings.png
-
-The final posters will use a 2 × 2 layout.
--->
-
-> 📸 The public snapshot currently ships without UI screenshots or showcase posters, so this README does not reference missing image files. Posters will be added in a separate task; Demo Mode can be used to run the real UI today.
+> Showcase graphics use Demo / synthetic data. Identity, location, and monitoring imagery shown in public materials have been anonymized or replaced with demo content and do not represent a real vehicle or real deployment environment.
+>
+> Actual features and UI may evolve; refer to the current source code and release version.
 
 ## ✨ Main Features
 
