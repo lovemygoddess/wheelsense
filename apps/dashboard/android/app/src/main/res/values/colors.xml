@@ -1,0 +1,21 @@
+<resources>
+  <color name="splashscreen_background">#FFFFFF</color>
+  <color name="iconBackground">#E6F4FE</color>
+  <color name="colorPrimary">#023c69</color>
+
+  <!-- Widget palette（2026-07-30 重设计：浅色简约风，白卡 + 灰阶 + 语义色，
+       与用户"浅色简约"审美一致；深色版已废弃） -->
+  <color name="widget_bg">#FFFFFF</color>
+  <color name="widget_bg_elevated">#F8FAFC</color>
+  <color name="widget_chip">#F1F5F9</color>
+  <color name="widget_text">#0F172A</color>
+  <color name="widget_text_secondary">#64748B</color>
+  <color name="widget_text_muted">#94A3B8</color>
+  <color name="widget_accent">#6366F1</color>
+  <color name="widget_accent_violet">#8B5CF6</color>
+  <color name="widget_success">#10B981</color>
+  <color name="widget_warning">#F59E0B</color>
+  <color name="widget_danger">#EF4444</color>
+  <color name="widget_track">#E2E8F0</color>
+  <color name="widget_divider">#E8EDF3</color>
+</resources>

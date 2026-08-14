@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: curl, sqlite3, pdo_sqlite
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist
+      - run: cp .env.example .env
+      - run: mkdir -p /tmp/evtelemetry && touch /tmp/evtelemetry/database.sqlite
+      - run: php artisan key:generate
+        env:
+          DB_DATABASE: /tmp/evtelemetry/database.sqlite
+      - run: php artisan migrate --force
+        env:
+          DB_DATABASE: /tmp/evtelemetry/database.sqlite
+      - run: php tests/SpeedAnalyzerTest.php
+      - run: php tests/TelemetryContractTest.php
+        env:
+          DB_DATABASE: /tmp/evtelemetry/database.sqlite
+
+  dashboard:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/dashboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: apps/dashboard/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - run: npm ci --legacy-peer-deps
+      - run: npx tsc --noEmit
+      - run: chmod +x gradlew
+        working-directory: apps/dashboard/android
+      - run: ./gradlew assembleDebug --no-daemon
+        working-directory: apps/dashboard/android
+
+  relay:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/relay
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - run: chmod +x gradlew
+      - run: ./gradlew test assembleDebug --no-daemon

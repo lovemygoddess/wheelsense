@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2026-07-30 深色 HUD 重设计。
+     骨架故意做到最简：整张卡的视觉（渐变底、辉光、渐变 SOC 环、车辆图、
+     状态徽章、全部文字）都由 WidgetRenderer 用 Canvas 画成一张位图，
+     再切三片通过 setImageViewBitmap 下发 —— 这是 RemoteViews 白名单里
+     唯一能拿到自由视觉的通道（自定义 gradient/vector/ProgressBar 会让
+     三星 launcher 直接"无法添加微件"）。
+
+     切三片而不是一片，是为了留两个独立点击区：
+       hero + foot  -> 打开 App
+       refresh      -> 立即刷新
+     三片首尾相接 + scaleType=fitXY，拼回去无缝。
+     根布局不设背景，圆角由位图自带，避免与底色对不上。
+
+     注意：footer 高度 26dp / refresh 宽度 42dp 必须与
+     WidgetRenderer.FOOTER_DP / REFRESH_DP 保持一致。 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <ImageView
+        android:id="@+id/widget_hero"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:adjustViewBounds="false"
+        android:contentDescription="@string/widget_description"
+        android:scaleType="fitXY" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:id="@+id/widget_foot"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:contentDescription="@string/widget_updated_prefix"
+            android:scaleType="fitXY" />
+
+        <ImageView
+            android:id="@+id/widget_refresh"
+            android:layout_width="52dp"
+            android:layout_height="match_parent"
+            android:contentDescription="@string/widget_refresh_desc"
+            android:scaleType="fitXY" />
+    </LinearLayout>
+
+</LinearLayout>

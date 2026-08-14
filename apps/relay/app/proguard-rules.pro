@@ -1,0 +1,3 @@
+-keep class io.github.lovemygoddess.wheelsense.relay.** { *; }
+-keepclassmembers class io.github.lovemygoddess.wheelsense.relay.** { *; }
+-dontwarn org.json.**

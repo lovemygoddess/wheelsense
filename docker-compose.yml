@@ -1,0 +1,25 @@
+services:
+  server:
+    build: ./server
+    env_file: ./server/.env
+    ports:
+      - "8000:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./data/database:/data
+      - ./data/storage:/app/storage
+    restart: unless-stopped
+
+  scheduler:
+    build: ./server
+    env_file: ./server/.env
+    command: ["sh", "-c", "sleep 10 && mkdir -p /data storage/app storage/framework/cache storage/framework/sessions storage/framework/views storage/logs && touch /data/database.sqlite && php artisan migrate --force && php artisan evtelemetry:schedule-loop"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./data/database:/data
+      - ./data/storage:/app/storage
+    restart: unless-stopped
+    depends_on:
+      - server

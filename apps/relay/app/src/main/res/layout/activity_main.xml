@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_screen"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingLeft="16dp"
+        android:paddingTop="22dp"
+        android:paddingRight="16dp"
+        android:paddingBottom="28dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="尾箱中继"
+            android:textColor="#14201E"
+            android:textSize="27sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/versionText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textColor="#75817F"
+            android:textSize="12sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/bg_status"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:id="@+id/statusText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="服务未启动"
+                android:textColor="#075D4E"
+                android:textSize="19sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/serviceSubText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="5dp"
+                android:text="—"
+                android:textColor="#44645E"
+                android:textSize="13sp" />
+
+            <Button
+                android:id="@+id/toggleBtn"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="14dp"
+                android:background="@drawable/bg_button_primary"
+                android:text="启动服务"
+                android:textAllCaps="false"
+                android:textColor="#FFFFFF"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="22dp"
+            android:text="采集链路"
+            android:textColor="#14201E"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="9dp"
+            android:background="@drawable/bg_card"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView android:id="@+id/boardText" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#172321" android:textSize="15sp" android:textStyle="bold" />
+            <TextView android:id="@+id/latestText" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="7dp" android:textColor="#586663" android:textSize="13sp" />
+            <TextView android:id="@+id/modeText" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="7dp" android:textColor="#586663" android:textSize="13sp" />
+            <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="14dp" android:layout_marginBottom="12dp" android:background="#EDF0F1" />
+            <TextView android:id="@+id/networkText" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#172321" android:textSize="14sp" />
+            <TextView android:id="@+id/queueText" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="7dp" android:textColor="#586663" android:textSize="13sp" />
+            <TextView android:id="@+id/powerText" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="7dp" android:textColor="#586663" android:textSize="13sp" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="长期插电建议把电量维持在 70–80%，并确保尾箱散热；电池达到 45°C 时中继会发出高温提示。" android:textColor="#9A6157" android:textSize="11sp" />
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:orientation="horizontal">
+                <Button android:id="@+id/reconnectBtn" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="重连保护板" android:textAllCaps="false" />
+                <Button android:id="@+id/flushBtn" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginLeft="8dp" android:layout_weight="1" android:text="立即回传" android:textAllCaps="false" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/bg_card"
+            android:orientation="vertical"
+            android:padding="16dp">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="当前策略" android:textColor="#172321" android:textSize="15sp" android:textStyle="bold" />
+            <TextView android:id="@+id/configText" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="7dp" android:textColor="#586663" android:textSize="13sp" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="自动识别负向放电电流；停车和充电低功耗扫描，骑行高频记录。界面中的旧“本地刷新频率”已移除，实际频率由服务端统一下发。" android:textColor="#7B8785" android:textSize="12sp" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/advancedBtn"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:text="展开高级设置"
+            android:textAllCaps="false" />
+
+        <LinearLayout
+            android:id="@+id/advancedPanel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/bg_card"
+            android:orientation="vertical"
+            android:padding="16dp"
+            android:visibility="gone">
+
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="服务器地址" android:textColor="#586663" android:textSize="12sp" />
+            <EditText android:id="@+id/serverUrlEdit" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="textUri" android:singleLine="true" android:textSize="13sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="中继 Token" android:textColor="#586663" android:textSize="12sp" />
+            <EditText android:id="@+id/tokenEdit" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="textPassword" android:singleLine="true" android:textSize="13sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="HMAC 密钥" android:textColor="#586663" android:textSize="12sp" />
+            <EditText android:id="@+id/hmacEdit" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="textPassword" android:singleLine="true" android:textSize="13sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="设备 SN" android:textColor="#586663" android:textSize="12sp" />
+            <EditText android:id="@+id/deviceSnEdit" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="text" android:singleLine="true" android:textSize="13sp" />
+            <Button android:id="@+id/saveBtn" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:text="保存并重启服务" android:textAllCaps="false" />
+            <Button android:id="@+id/batteryBtn" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="电池优化白名单" android:textAllCaps="false" />
+            <Button android:id="@+id/cameraBtn" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="启用远程拍照权限" android:textAllCaps="false" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/diagText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:textColor="#8A4A40"
+            android:textIsSelectable="true"
+            android:textSize="11sp" />
+    </LinearLayout>
+</ScrollView>

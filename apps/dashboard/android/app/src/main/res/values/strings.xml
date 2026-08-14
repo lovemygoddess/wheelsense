@@ -1,0 +1,27 @@
+<resources>
+  <string name="app_name">WheelSense</string>
+  <string name="widget_description">车辆状态一览：电量、续航、温度、锁车状态</string>
+  <string name="widget_refresh_desc">立即刷新</string>
+  <string name="widget_range_label">剩余里程</string>
+  <string name="widget_range_label_calibrated">剩余里程·校准</string>
+  <string name="widget_temp_label">电池温度</string>
+  <string name="widget_locked_full">已锁定</string>
+  <string name="widget_unlocked_full">未锁定</string>
+  <string name="widget_soc_vendor">车机</string>
+  <string name="widget_voltage">电压</string>
+  <string name="widget_temp">温度</string>
+  <string name="widget_range">续航</string>
+  <string name="widget_range_calibrated">续航·校准</string>
+  <string name="widget_cycles">循环</string>
+  <string name="widget_soc">电量</string>
+  <string name="widget_soc_voltage">电压法</string>
+  <string name="widget_soc_bms">保护板</string>
+  <string name="widget_km">km</string>
+  <string name="widget_charging">充电中</string>
+  <string name="widget_idle">待机</string>
+  <string name="widget_unknown">状态未知</string>
+  <string name="widget_locked">已锁</string>
+  <string name="widget_unlocked">解锁</string>
+  <string name="widget_no_data">打开 App 同步数据</string>
+  <string name="widget_updated_prefix">更新于 </string>
+</resources>

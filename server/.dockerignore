@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.example
+vendor/
+storage/app/*
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+database/*.sqlite*
+*.apk
+*.jks
+*.keystore
+.git/
