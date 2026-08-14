@@ -34,15 +34,23 @@ WheelSense does not operate a centralized vehicle-telemetry cloud. Each deployer
 
 ## ✨ Project Preview
 
-<p align="center">
-  <img src="docs/public-assets/wheelsense-overview-widget.png" width="48%" alt="WheelSense Overview and Widget" />
-  <img src="docs/public-assets/wheelsense-rides-battery.png" width="48%" alt="WheelSense Rides and Battery" />
-</p>
-
-<p align="center">
-  <img src="docs/public-assets/wheelsense-dashboard-monitor-relay.png" width="48%" alt="WheelSense Dashboard Monitor and Relay" />
-  <img src="docs/public-assets/wheelsense-theme-settings.png" width="48%" alt="WheelSense Theme and Settings" />
-</p>
+<table>
+  <tr>
+    <td align="center" valign="top"><img src="docs/public-assets/wheelsense-overview-widget.png" width="100%" alt="WheelSense Overview and Widget" /><br /><sub>Overview &amp; Widget</sub></td>
+    <td align="center" valign="top"><img src="docs/public-assets/wheelsense-rides-battery.png" width="100%" alt="WheelSense Rides and Battery" /><br /><sub>Rides &amp; Battery</sub></td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/public-assets/wheelsense-dashboard-monitor-relay.png" width="100%" alt="WheelSense Dashboard Monitor and Relay" /><br /><sub>Dashboard / Monitor / Relay</sub></td>
+    <td align="center" valign="top"><img src="docs/public-assets/wheelsense-theme-settings.png" width="100%" alt="WheelSense Theme and Settings" /><br /><sub>Theme &amp; Settings</sub></td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/public-assets/wheelsense-overview-widget-detail.png" width="100%" alt="WheelSense Overview and Widget detail" /><br /><sub>Overview &amp; Widget · extended showcase</sub></td>
+    <td align="center" valign="top"><img src="docs/public-assets/wheelsense-dashboard-monitor-relay-detail.png" width="100%" alt="WheelSense Dashboard Monitor and Relay detail" /><br /><sub>Dashboard / Monitor / Relay · extended showcase</sub></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><img src="docs/public-assets/wheelsense-theme-settings-detail.png" width="50%" alt="WheelSense Theme and Settings detail" /><br /><sub>Theme &amp; Settings · extended showcase</sub></td>
+  </tr>
+</table>
 
 > Showcase graphics use Demo / synthetic data. Identity, location, and monitoring imagery shown in public materials have been anonymized or replaced with demo content and do not represent a real vehicle or real deployment environment.
 >

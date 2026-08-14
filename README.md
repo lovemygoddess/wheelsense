@@ -34,15 +34,23 @@ WheelSense 不运营集中式车辆遥测云。部署者运行自己的 Server�
 
 ## ✨ 项目预览
 
-<p align="center">
-  <img src="docs/public-assets/wheelsense-overview-widget.png" width="48%" alt="WheelSense Overview and Widget" />
-  <img src="docs/public-assets/wheelsense-rides-battery.png" width="48%" alt="WheelSense Rides and Battery" />
-</p>
-
-<p align="center">
-  <img src="docs/public-assets/wheelsense-dashboard-monitor-relay.png" width="48%" alt="WheelSense Dashboard Monitor and Relay" />
-  <img src="docs/public-assets/wheelsense-theme-settings.png" width="48%" alt="WheelSense Theme and Settings" />
-</p>
+<table>
+  <tr>
+    <td align="center" valign="top"><img src="docs/public-assets/wheelsense-overview-widget.png" width="100%" alt="WheelSense Overview and Widget" /><br /><sub>Overview &amp; Widget</sub></td>
+    <td align="center" valign="top"><img src="docs/public-assets/wheelsense-rides-battery.png" width="100%" alt="WheelSense Rides and Battery" /><br /><sub>Rides &amp; Battery</sub></td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/public-assets/wheelsense-dashboard-monitor-relay.png" width="100%" alt="WheelSense Dashboard Monitor and Relay" /><br /><sub>Dashboard / Monitor / Relay</sub></td>
+    <td align="center" valign="top"><img src="docs/public-assets/wheelsense-theme-settings.png" width="100%" alt="WheelSense Theme and Settings" /><br /><sub>Theme &amp; Settings</sub></td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/public-assets/wheelsense-overview-widget-detail.png" width="100%" alt="WheelSense Overview and Widget detail" /><br /><sub>Overview &amp; Widget · extended showcase</sub></td>
+    <td align="center" valign="top"><img src="docs/public-assets/wheelsense-dashboard-monitor-relay-detail.png" width="100%" alt="WheelSense Dashboard Monitor and Relay detail" /><br /><sub>Dashboard / Monitor / Relay · extended showcase</sub></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><img src="docs/public-assets/wheelsense-theme-settings-detail.png" width="50%" alt="WheelSense Theme and Settings detail" /><br /><sub>Theme &amp; Settings · extended showcase</sub></td>
+  </tr>
+</table>
 
 > 展示图使用 Demo / synthetic data，并对公开展示所需的身份、位置与监控画面进行了匿名化或演示化处理，不代表真实车辆或真实使用环境。
 >
