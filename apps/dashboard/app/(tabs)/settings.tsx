@@ -747,7 +747,7 @@ export default function SettingsScreen({ nested = false, initialPane = null }: {
       )}
       {settingsPane === '关于本应用' && <View style={[s.aboutPanel, { backgroundColor: themeColors.surface, borderColor: themeColors.borderSubtle }]}>
         <View style={[s.aboutIcon, { backgroundColor: themeColors.primarySoft }]}><Ionicons name="bicycle-outline" size={28} color={themeColors.primary} /></View>
-        <AppText style={[s.aboutName, { color: themeColors.textPrimary }]}>Nine Dashboard</AppText>
+        <AppText style={[s.aboutName, { color: themeColors.textPrimary }]}>WheelSense</AppText>
         <AppText style={[s.aboutVersion, { color: themeColors.textMuted }]}>版本 {curVersion || '—'}{curBuild != null ? ` · build ${curBuild}` : ''}</AppText>
         <View style={[s.aboutDivider, { backgroundColor: themeColors.borderSubtle }]} />
         <AppText style={[s.aboutDescription, { color: themeColors.textSecondary }]}>智能电动车数据、状态与设备管理应用。</AppText>

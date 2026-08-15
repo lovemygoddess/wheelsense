@@ -81,7 +81,7 @@ const animeDark: Partial<ThemeColors> = {
 };
 
 const manifests: Record<ThemePackId, ThemePackManifest> = {
-  'default-tech': { schemaVersion: 1, id: 'default-tech', name: '默认科技', description: '冷白留白、克制紫光与清晰的数据层级。', version: '1.1.0', author: 'Nine Dashboard', minAppVersion: '1.6.19', available: true,
+  'default-tech': { schemaVersion: 1, id: 'default-tech', name: '默认科技', description: '冷白留白、克制紫光与清晰的数据层级。', version: '1.1.0', author: 'WheelSense', minAppVersion: '1.6.19', available: true,
     colors: { light, dark }, layout: hero, dashboard: { hudStyle: 'arc', decorationOpacity: 0.1 }, widget: { style: 'tech', glowOpacity: 0.12, characterMaxFraction: 0.2 }, assets: {} },
   'anime-01': { schemaVersion: 1, id: 'anime-01', name: 'Anime Theme 01', description: '奶白、樱粉与柔紫交织的原创角色主题。', version: '1.0.0', author: 'WheelSense', minAppVersion: '1.6.19', available: true,
     preview: originalHeroine, colors: { light: animeLight, dark: animeDark },
