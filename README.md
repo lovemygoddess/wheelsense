@@ -125,7 +125,7 @@ Theme Pack 与数据逻辑独立，负责颜色、Light / Dark 层级、页面�
 - **Default-Tech**：冷紫科技风；
 - **Anime Theme 01**：奶白、樱粉和柔紫方向的主题包。
 
-Anime Theme 01 的 Chii artwork 是单独标注的第三方 fan artwork，不属于 WheelSense MIT License 的授权范围。使用前请阅读 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 和 [Anime Theme 01 NOTICE](apps/dashboard/assets/themes/anime-01/NOTICE.md)。
+Anime Theme 01 使用为 WheelSense 项目提供的原创角色图像。该角色图像作为可选主题资源提供，不属于仓库 MIT 代码许可范围。使用或再分发前请阅读 [Anime Theme 01 NOTICE](apps/dashboard/assets/themes/anime-01/NOTICE.md)。
 
 ## 🏗️ 系统架构
 
@@ -244,7 +244,7 @@ NineCLI 如被使用，只是 optional、independent、unofficial compatibility 
 
 ## 📜 License
 
-WheelSense 自有源码使用 [MIT License](LICENSE)。第三方依赖、商标、图片和 fan artwork 遵循各自的许可与权利边界；请同时阅读 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。仓库主体采用 MIT 不会把第三方角色或作品自动授权为 MIT。
+WheelSense 自有源码使用 [MIT License](LICENSE)。第三方依赖、商标、图片和可选主题素材遵循各自的许可与权利边界；请同时阅读 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。仓库主体采用 MIT 不会把第三方角色或作品自动授权为 MIT。
 
 ---
 

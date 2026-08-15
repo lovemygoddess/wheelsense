@@ -125,7 +125,7 @@ The current packs are:
 - **Default-Tech**, a cool violet technology theme;
 - **Anime Theme 01**, using an off-white, cherry-pink, and soft-violet direction.
 
-The Chii artwork in Anime Theme 01 is separately identified third-party fan artwork and is not covered by the WheelSense MIT License. Read [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and [Anime Theme 01 NOTICE](apps/dashboard/assets/themes/anime-01/NOTICE.md) before using it.
+Anime Theme 01 uses original character artwork provided for the WheelSense project. The artwork is distributed as an optional theme asset and is outside the MIT-licensed application code scope. See [the Anime Theme 01 asset notice](apps/dashboard/assets/themes/anime-01/NOTICE.md) before redistributing the artwork.
 
 ## 🏗️ Architecture
 
@@ -244,7 +244,7 @@ If mentioned, NineCLI is an optional, independent, unofficial compatibility brid
 
 ## 📜 License
 
-WheelSense’s own source code is released under the [MIT License](LICENSE). Third-party dependencies, trademarks, images, and fan artwork retain their own rights and terms; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The repository’s MIT license does not make third-party characters or works MIT-licensed.
+WheelSense’s own source code is released under the [MIT License](LICENSE). Third-party dependencies, trademarks, images, and optional theme assets retain their own rights and terms; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The repository’s MIT license does not make third-party characters or works MIT-licensed.
 
 ---
 
