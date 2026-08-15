@@ -153,7 +153,7 @@ object WidgetRenderer {
         val splitX = wf * 0.49f
         drawEnergy(ctx, canvas, pad, splitX - 11f * t, bodyTop, bodyBottom, t, d, p)
 
-        // Scene order is intentional: Chii is background scenery and the
+        // Scene order is intentional: the theme character is background scenery and the
         // actual vehicle is drawn over her, creating a natural occlusion.
         drawCharacterDecoration(canvas, d.widgetCharacter, wf, bodyTop, bodyBottom, s, d.characterMaxFraction, d.characterCropTop, d.characterCropBottom)
         drawVehicle(
@@ -364,7 +364,7 @@ object WidgetRenderer {
         val maxW = w * fraction
         val top = cropTop.coerceIn(0f, 0.8f)
         val bottom = cropBottom.coerceIn(top + 0.2f, 1f).coerceAtMost(top + 0.4f)
-        // Central head/ear crop: enough hair and shoulder to read as Chii,
+        // Central head/ear crop: enough hair and shoulder to read as a character,
         // without ever shrinking the full-body source into a sticker.
         val cropLeft = 0.25f
         val cropRight = 0.75f

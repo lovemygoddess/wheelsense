@@ -68,7 +68,7 @@ const dark: ThemeColors = {
   success: '#34D399', successSoft: '#102A22', warning: '#FBBF24', warningSoft: '#30240E', danger: '#FB7185', dangerSoft: '#32151C', info: '#60A5FA', infoSoft: '#13263D', onPrimary: '#120D20',
 };
 const hero: ThemePackLayout = { characterPosition: 'right', characterAnchor: 'bottom', characterScale: 1, characterOffsetX: 0, characterOffsetY: 0, characterZIndex: 2, vehicleScale: 1, vehicleOffsetX: 0, vehicleOffsetY: 0 };
-const chiiHero = require('../assets/themes/anime-01/chii-hero.png') as ImageSourcePropType;
+const originalHeroine = require('../assets/themes/anime-01/original-heroine.png') as ImageSourcePropType;
 const animeLight: Partial<ThemeColors> = {
   primary: '#E88BAA', primaryPressed: '#D77698', primarySoft: '#FBE9F0', background: '#FAF8FB', surface: '#FFFDFE', surfaceSecondary: '#F7EEF5',
   border: '#EEDFE7', borderSubtle: '#F4EAF0', textPrimary: '#403541', textSecondary: '#716272', textMuted: '#928391', textDim: '#B9ABB5',
@@ -81,13 +81,13 @@ const animeDark: Partial<ThemeColors> = {
 };
 
 const manifests: Record<ThemePackId, ThemePackManifest> = {
-  'default-tech': { schemaVersion: 1, id: 'default-tech', name: '默认科技', description: '冷白留白、克制紫光与清晰的数据层级。', version: '1.1.0', author: 'Nine Dashboard', minAppVersion: '1.6.19', available: true,
+  'default-tech': { schemaVersion: 1, id: 'default-tech', name: '默认科技', description: '冷白留白、克制紫光与清晰的数据层级。', version: '1.1.0', author: 'WheelSense', minAppVersion: '1.6.19', available: true,
     colors: { light, dark }, layout: hero, dashboard: { hudStyle: 'arc', decorationOpacity: 0.1 }, widget: { style: 'tech', glowOpacity: 0.12, characterMaxFraction: 0.2 }, assets: {} },
-  'anime-01': { schemaVersion: 1, id: 'anime-01', name: 'Anime Theme 01 · Chii', description: '奶白、樱粉与柔紫交织的 Persocom 柔光主题。', version: '1.0.0', author: 'Nine Dashboard', minAppVersion: '1.6.19', available: true,
-    preview: chiiHero, colors: { light: animeLight, dark: animeDark },
+  'anime-01': { schemaVersion: 1, id: 'anime-01', name: 'Anime Theme 01', description: '奶白、樱粉与柔紫交织的原创角色主题。', version: '1.0.0', author: 'WheelSense', minAppVersion: '1.6.19', available: true,
+    preview: originalHeroine, colors: { light: animeLight, dark: animeDark },
     layout: { ...hero, characterPosition: 'edge', characterAnchor: 'bottom', characterScale: 0.86, characterOffsetX: -5, characterOffsetY: 2, characterZIndex: 2, vehicleScale: 0.9, vehicleOffsetX: -10 },
-    dashboard: { hudStyle: 'line', decorationOpacity: 0.66, avatarSize: 58, avatarCrop: 'upper' }, widget: { style: 'character', glowOpacity: 0.13, characterMaxFraction: 0.17, nativeCharacterAsset: 'chii_hero', characterCropTop: 0, characterCropBottom: 0.4 },
-    assets: { characterHero: chiiHero, tripCharacter: chiiHero, dashboardAvatar: chiiHero, widgetCharacter: chiiHero },
+    dashboard: { hudStyle: 'line', decorationOpacity: 0.66, avatarSize: 58, avatarCrop: 'upper' }, widget: { style: 'character', glowOpacity: 0.13, characterMaxFraction: 0.17, nativeCharacterAsset: 'original_heroine', characterCropTop: 0, characterCropBottom: 0.4 },
+    assets: { characterHero: originalHeroine, tripCharacter: originalHeroine, dashboardAvatar: originalHeroine, widgetCharacter: originalHeroine },
     dialogue: { home: ['今天也一起出发吧。'], trip: ['今天也走了很远呢。'], charging: ['正在补充能量……'], warning: ['好像有一点异常，要注意哦。'], enabledByDefault: true } },
 };
 
