@@ -6,7 +6,7 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
- * Parser for the compatible ANT BMS BLE frame format.
+ * ANT-BLE16ZNUB-H7H8 protocol parser.
  *
  * Frame:  [7E][A1][func:u8][addr:u16 LE][len:u8][body:len][crc16 LE][AA][55]
  * total   = 10 + len
@@ -244,9 +244,10 @@ class BmsProtocol {
         val capacityRemainingAh = if (rc != null) rc / 1_000_000f else null
         off += 4
 
-        // Cycle capacity — same µAh scaling as the two capacity fields above.
+        // Lifetime discharged capacity: ANT encodes this counter in mAh,
+        // unlike the neighbouring configured/remaining capacity fields (µAh).
         val cc = readU32LE(body, off)
-        val cycleCapacityAh = if (cc != null) cc / 1_000_000f else null
+        val cycleCapacityAh = if (cc != null) cc / 1_000f else null
         off += 4
 
         val pw = readI32LE(body, off)
@@ -285,6 +286,7 @@ class BmsProtocol {
         boardConnected: Boolean = true,
         isHeartbeat: Boolean = false,
         includeHex: Boolean = false,
+        riding: Boolean = false,
         capturedAtIso: String? = null,
     ): String {
         val cells = JSONArray()
@@ -325,10 +327,19 @@ class BmsProtocol {
             obj.put("phone_battery_temp_c", phone.tempC ?: JSONObject.NULL)
             obj.put("phone_charging", phone.charging)
             obj.put("phone_battery_voltage_v", phone.voltageV ?: JSONObject.NULL)
+            phone.batteryStatus?.let { obj.put("battery_status", it) }
+            phone.plugged?.let { obj.put("phone_plugged", it) }
+            phone.currentNowUa?.let { obj.put("phone_current_now_ua", it) }
+            obj.put("external_power_present", phone.externalPowerPresent)
         }
 
         obj.put("board_connected", boardConnected)
         obj.put("is_heartbeat", isHeartbeat)
+        // riding=true means the scooter is in a riding session (recent discharge
+        // current). A positive BMS current while riding is regenerative braking,
+        // NOT wall charging — the backend uses this to keep braking pulses out of
+        // the charge history and out of the "charging" UI state.
+        obj.put("riding", riding)
         obj.put("captured_at", capturedAtIso ?: nowIsoUtc())
         return obj.toString()
     }
@@ -354,6 +365,7 @@ class BmsProtocol {
         bleState: String = "",
         appVer: String = "",
         screenOn: Boolean? = null,
+        powerBank: PowerBankKeepAlive.Diagnostics? = null,
     ): String {
         val obj = JSONObject()
         obj.put("device_sn", deviceSn)
@@ -363,7 +375,7 @@ class BmsProtocol {
         // waiting" instead of implying everything is already synced.
         obj.put("pending_rows", pendingRows)
         // Remote-diagnostics: WHY the board is/ isn't attached, so the owner
-        // can tell "扫描中" / "未发现设备" / "蓝牙权限不足" without touching the relay phone.
+        // can tell "扫描中" / "未发现设备" / "蓝牙权限不足" without touching S7.
         if (bleStatus.isNotBlank()) obj.put("ble_status", bleStatus)
         if (bleState.isNotBlank()) obj.put("ble_state", bleState)
         // Which build is actually running — versionName was 1.0.0 for every
@@ -379,6 +391,35 @@ class BmsProtocol {
         // Relay phone screen-on/off (Android 8 PARTIAL_WAKE_LOCK lets it sleep
         // even while relaying — see BleManager.heartbeatJson). null = unknown.
         if (screenOn != null) obj.put("phone_screen_on", screenOn)
+        powerBank?.let { d ->
+            obj.put("keepalive_enabled", d.enabled)
+            obj.put("keepalive_active", d.active)
+            obj.put("pulse_count", d.pulseCount)
+            d.lastPulseAt?.let { obj.put("last_pulse_at", it) }
+            d.lastPulseDurationMs?.let { obj.put("last_pulse_duration_ms", it) }
+            d.pulseIntervalLastMs?.let { obj.put("pulse_interval_last_ms", it) }
+            d.pulseIntervalMaxMs?.let { obj.put("pulse_interval_max_ms", it) }
+            d.scheduledAt?.let { obj.put("scheduled_at", it) }
+            d.actualStartedAt?.let { obj.put("actual_started_at", it) }
+            d.scheduleDelayMs?.let { obj.put("schedule_delay_ms", it) }
+            d.scheduleDelayMaxMs?.let { obj.put("schedule_delay_max_ms", it) }
+            obj.put("wake_lock_held", d.wakeLockHeld)
+            d.wakeLockHeldAt?.let { obj.put("wake_lock_held_at", it) }
+            obj.put("external_power_present", d.externalPowerPresent)
+            d.externalPowerConnectedAt?.let { obj.put("external_power_connected_at", it) }
+            d.externalPowerLostAt?.let { obj.put("external_power_lost_at", it) }
+            d.externalPowerRestoredAt?.let { obj.put("external_power_restored_at", it) }
+            d.batteryLevelAtPowerLoss?.let { obj.put("battery_level_at_power_loss", it) }
+            d.temperatureAtPowerLoss?.let { obj.put("temperature_at_power_loss", it) }
+            d.lossLastPulseAgeMs?.let { obj.put("loss_last_pulse_age_ms", it) }
+            d.lossLastPulseIntervalMs?.let { obj.put("loss_last_pulse_interval_ms", it) }
+            d.lossScheduleDelayMs?.let { obj.put("loss_schedule_delay_ms", it) }
+            d.lossPulseCount?.let { obj.put("loss_pulse_count", it) }
+            d.stopReason?.let { obj.put("keepalive_stop_reason", it.name) }
+            d.currentBeforeUa?.let { obj.put("current_before_ua", it) }
+            d.currentDuringUa?.let { obj.put("current_during_ua", it) }
+            d.currentAfterUa?.let { obj.put("current_after_ua", it) }
+        }
         obj.put("captured_at", capturedAtIso ?: nowIsoUtc())
         return obj.toString()
     }

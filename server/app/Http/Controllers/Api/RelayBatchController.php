@@ -451,13 +451,15 @@ class RelayBatchController extends Controller
             );
         }
         if (! $isBackfill && ! empty($d['crc_ok'])) {
-            app(\App\Services\Battery\BmsChargeSessionService::class)->ingest(
+            app(\App\Services\Battery\ChargingStateService::class)->ingest(
                 $deviceSn,
                 \Illuminate\Support\Carbon::instance($capturedAt),
                 $packVoltage,
                 $packCurrent,
                 $this->floatOrNull($d['soc_pct'] ?? null),
                 is_array($d['temps_c'] ?? null) ? $d['temps_c'] : null,
+                array_key_exists('riding', $d) ? (bool) $d['riding'] : null,
+                $this->floatOrNull($d['gps_speed_mps'] ?? null),
             );
         }
 
@@ -582,7 +584,7 @@ class RelayBatchController extends Controller
     }
 
     /**
-     * A raw BLE advertisement PDU captured from a Z07 tire-pressure/temp
+     * A raw BLE advertisement PDU captured from a compatible TPMS
      * sensor. This is a DEBUG-ONLY landing zone: the relay ships us the whole
      * advert (full PDU base64 + manufacturer/service-data maps) so we can
      * reverse-engineer the pressure/temp encoding off-device. Task #9 will

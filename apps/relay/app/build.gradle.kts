@@ -29,6 +29,7 @@ android {
     sourceCompatibility = JavaVersion.VERSION_17
     targetCompatibility = JavaVersion.VERSION_17
   }
+  buildFeatures { buildConfig = true }
   kotlinOptions { jvmTarget = "17" }
 }
 
@@ -36,4 +37,5 @@ dependencies {
   coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
   implementation("androidx.core:core-ktx:1.15.0")
   implementation("androidx.appcompat:appcompat:1.7.0")
+  testImplementation("junit:junit:4.13.2")
 }

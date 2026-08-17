@@ -17,7 +17,6 @@ type Tile = {
     | '/(tabs)/more/relay'
     | '/(tabs)/more/theme-center'
     | '/(tabs)/more/widget'
-    | '/(tabs)/more/system'
     | '/(tabs)/more/notification-settings'
     | '/(tabs)/more/vehicle-settings'
     | '/(tabs)/more/data-settings'
@@ -30,10 +29,9 @@ type Tile = {
 
 const TILES: Tile[] = [
   { title: '监控', subtitle: '摄像头状态与告警', icon: 'videocam-outline', route: '/(tabs)/more/monitor' },
-  { title: '中继与远控', subtitle: 'S7 状态、配置与拍照', icon: 'radio-outline', route: '/(tabs)/more/relay' },
+  { title: '中继与远控', subtitle: 'S7 状态、配置与远控', icon: 'radio-outline', route: '/(tabs)/more/relay' },
   { title: '主题中心', subtitle: '显示模式与 Theme Pack', icon: 'color-palette-outline', route: '/(tabs)/more/theme-center' },
   { title: '桌面小组件', subtitle: '刷新与显示设置', icon: 'grid-outline', route: '/(tabs)/more/widget' },
-  { title: '系统设置', subtitle: '应用行为、更新与权限', icon: 'settings-outline', route: '/(tabs)/more/system' },
   { title: '通知设置', subtitle: '告警与提醒偏好', icon: 'notifications-outline', route: '/(tabs)/more/notification-settings' },
   { title: '车辆设置', subtitle: '车辆资料与锁定', icon: 'bicycle-outline', route: '/(tabs)/more/vehicle-settings' },
   { title: '数据设置', subtitle: '首页、阈值与采样', icon: 'analytics-outline', route: '/(tabs)/more/data-settings' },

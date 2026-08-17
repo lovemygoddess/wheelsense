@@ -116,6 +116,16 @@ It is useful for:
 
 Real device operations are blocked or simulated while Demo Mode is active. Turning it off restores the self-hosted data source.
 
+## 🔧 Recent Engineering Improvements
+
+- Canonical charging detection: stationary BMS-current candidates, consecutive evidence, movement/regenerative-braking vetoes, end hysteresis, and stale-session boundaries feed the same state used by screens and notifications.
+- Relay BLE resilience: one shared scanner, filtered/discovery profiles, generation/backoff control, saved-device reconnect, and a recoverable offline outbox.
+- TPMS / environment data path: the server accepts only verified protocol frames and checksums; layered diagnostics expose scan hits, parser failures, and enqueue state, while old values are marked stale.
+- Power and background diagnostics: a condition-gated best-effort keep-alive, paired power events, heartbeat health, and pending-queue metrics make power behavior observable without promising that Android background execution is real time.
+- Relay OTA status: the Dashboard compares heartbeat `app_ver` with a server-maintained release map; an unknown versionCode never becomes an update recommendation.
+
+These capabilities target self-hosted deployments. Validate hardware-specific protocols, thresholds, and Android background behavior on the device you operate.
+
 ## 🎨 Theme Pack
 
 Theme Packs are independent of data logic. They own color tokens, Light / Dark surfaces, page decoration, Dashboard / Widget visuals, and optional dialogue or artwork resources.

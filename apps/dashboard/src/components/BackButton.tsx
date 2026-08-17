@@ -3,10 +3,10 @@ import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet } from 'react-native';
 import { colors, radius, spacing } from '../theme';
 
-export function BackButton() {
+export function BackButton({ onPress }: { onPress?: () => void } = {}) {
   const router = useRouter();
   return (
-    <Pressable accessibilityLabel="返回" hitSlop={10} onPress={() => router.back()}
+    <Pressable accessibilityLabel="返回" hitSlop={10} onPress={onPress ?? (() => router.back())}
       style={({ pressed }) => [s.button, pressed && s.pressed]}>
       <Ionicons name="arrow-back" size={20} color={colors.text} />
     </Pressable>

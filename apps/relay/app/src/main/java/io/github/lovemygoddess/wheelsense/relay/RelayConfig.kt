@@ -20,6 +20,8 @@ data class RelayConfig(
     val hmacSecret: String,
     val deviceSn: String,
     val sensorMac: String = DEFAULT_SENSOR_MAC,
+    /** Best-effort software keep-alive; opt-in per deployment. */
+    val powerBankKeepAliveEnabled: Boolean = DEFAULT_POWER_BANK_KEEPALIVE_ENABLED,
     /** Device-name prefixes captured for TPMS decoding (empty = capture off). */
     val tpmsCapturePrefixes: Set<String> = DEFAULT_TPMS_PREFIXES,
     /**
@@ -60,27 +62,29 @@ data class RelayConfig(
 
         /**
          * BLE device-name prefixes the relay passively captures for TPMS
-         * decoding. Compatible Z07 tire-pressure/temp sensors may advertise the
-         * name "JH.TPMS" over the air (the "Z07……" strings are cloud-bound
-         * serials), so we match both; "TPMS" is a generic safety net. Matching
+         * decoding. Compatible tire-pressure/temp sensors may advertise a
+         * vendor-specific name, so we match generic prefixes and company IDs;
+         * "TPMS" is a generic safety net. Matching
          * also fires on a known TPMS manufacturer company ID (see
          * [MiThermoScanner.TPMS_MANUFACTURER_IDS]) so nameless data frames are
          * caught too. Set empty to disable capture entirely.
          */
-        val DEFAULT_TPMS_PREFIXES: Set<String> = setOf("Z07", "JH", "TPMS")
+        val DEFAULT_TPMS_PREFIXES: Set<String> = setOf("JH", "TPMS")
 
         /**
-         * Debug BLE survey on by default: we still don't know the Z07 sensor's
-         * real advertisement name, so capture a sample of every advertiser and
+         * Debug BLE survey is opt-in: capture a sample of every advertiser only
+         * when a deployment is actively diagnosing an unknown sensor, and
          * identify it from the data. Flip to false once decoding is live.
          */
         const val DEFAULT_TPMS_SURVEY = false
+        const val DEFAULT_POWER_BANK_KEEPALIVE_ENABLED = false
 
         fun default(): RelayConfig = RelayConfig(
             serverUrl = DEFAULT_SERVER_URL,
             token = DEFAULT_TOKEN,
             hmacSecret = DEFAULT_HMAC_SECRET,
             deviceSn = DEFAULT_DEVICE_SN,
+            powerBankKeepAliveEnabled = DEFAULT_POWER_BANK_KEEPALIVE_ENABLED,
             tpmsCapturePrefixes = DEFAULT_TPMS_PREFIXES,
             tpmsSurveyMode = DEFAULT_TPMS_SURVEY,
         )
@@ -95,6 +99,7 @@ object Prefs {
     private const val K_SN = "device_sn"
     private const val K_SENSOR_MAC = "sensor_mac"
     private const val K_TPMS_SURVEY = "tpms_survey_mode"
+    private const val K_POWER_BANK_KEEPALIVE = "power_bank_keepalive_enabled"
 
     fun load(ctx: Context): RelayConfig {
         val sp = ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE)
@@ -105,6 +110,7 @@ object Prefs {
             hmacSecret = sp.getString(K_HMAC, null) ?: d.hmacSecret,
             deviceSn = sp.getString(K_SN, null) ?: d.deviceSn,
             sensorMac = sp.getString(K_SENSOR_MAC, null) ?: d.sensorMac,
+            powerBankKeepAliveEnabled = sp.getBoolean(K_POWER_BANK_KEEPALIVE, d.powerBankKeepAliveEnabled),
             tpmsSurveyMode = sp.getBoolean(K_TPMS_SURVEY, d.tpmsSurveyMode),
         )
     }
@@ -116,8 +122,15 @@ object Prefs {
             putString(K_HMAC, cfg.hmacSecret)
             putString(K_SN, cfg.deviceSn)
             putString(K_SENSOR_MAC, cfg.sensorMac)
+            putBoolean(K_POWER_BANK_KEEPALIVE, cfg.powerBankKeepAliveEnabled)
             putBoolean(K_TPMS_SURVEY, cfg.tpmsSurveyMode)
             apply()
         }
+    }
+
+    fun setPowerBankKeepAliveEnabled(ctx: Context, enabled: Boolean) {
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit()
+            .putBoolean(K_POWER_BANK_KEEPALIVE, enabled)
+            .apply()
     }
 }

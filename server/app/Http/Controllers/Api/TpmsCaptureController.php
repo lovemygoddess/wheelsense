@@ -8,7 +8,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
- * GET /api/tpms/captures — 读取 Z07 胎压传感器的原始广播抓包（调试用）。
+ * GET /api/tpms/captures — read compatible TPMS raw broadcast captures
+ * (diagnostics only).
  *
  * 落地的原始 PDU 由本端点暴露给仪表盘/人工排查；Task #9 解析出结构化字段后，
  * 本端点可保留为「原始数据」视图或下线。支持 ?sensor= 与 ?limit= 过滤。

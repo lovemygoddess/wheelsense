@@ -10,6 +10,7 @@ use App\Models\Device;
 use App\Models\DeviceRideHistory;
 use App\Models\DeviceSnapshot;
 use App\Services\Calibration\ChargeTimeEstimator;
+use App\Services\Battery\ChargingStateService;
 use App\Services\Calibration\SocEstimator;
 use App\Services\Calibration\TrustedConsumptionService;
 use App\Services\Rides\BmsEnergyIntervalService;
@@ -33,6 +34,9 @@ use Illuminate\Support\Facades\Http;
 
 class DashboardController extends Controller
 {
+    // Heartbeats are periodic; a small tolerance avoids racing the next
+    // scheduled report while still requiring a genuinely recent signal.
+    private const RELAY_HEARTBEAT_FRESH_SEC = 360;
     public function __construct(
         private readonly NinebotApiService $ninebotApi,
         private readonly VehiclePayloadMapper $vehicleMapper,
@@ -189,10 +193,8 @@ class DashboardController extends Controller
         // so retain it only as a diagnostic and publish the board-based result.
         $payload['vendor_remain_charge_time'] = $payload['remain_charge_time'];
         $relayLive = $relayBms !== null && $relayBms['fresh'];
-        $relayCharging = $relayLive
-            && $relayBms['current_a'] !== null
-            && (float) $relayBms['current_a'] >= 0.3;
-        $chargeActive = $relayCharging || $payload['charging'];
+        $chargingState = app(ChargingStateService::class)->current($device->sn);
+        $chargeActive = (bool) $chargingState['active'];
         $chargeVoltage = $relayLive && $relayBms['total_voltage_v'] !== null
             ? (float) $relayBms['total_voltage_v']
             : ($payload['bms_voltage'] !== null ? (float) $payload['bms_voltage'] : null);
@@ -207,6 +209,9 @@ class DashboardController extends Controller
             )
             : ['supported' => false, 'reason' => '当前未在充电'];
         $payload['charging'] = $chargeActive;
+        $payload['charging_started_at'] = $chargingState['started_at'] ?? null;
+        $payload['charging_state_source'] = $chargingState['source'] ?? null;
+        $payload['charging_state'] = $chargingState['state'] ?? 'idle';
         $payload['charge_time_estimate'] = $chargeEstimate;
         $payload['remain_charge_time'] = $chargeEstimate['supported']
             ? ($chargeEstimate['remaining_min'] ?? null)
@@ -881,6 +886,8 @@ class DashboardController extends Controller
                 'ambient' => $ambient,
                 'poll_ms' => $pollMs,
                 'app_ver' => null,
+                'version_code' => null,
+                'version_code_source' => 'unknown',
             ]);
         }
 
@@ -894,7 +901,7 @@ class DashboardController extends Controller
         // validated-network callback, which used to suppress heartbeat rows
         // even while forced board uploads succeeded. Never show "relay
         // offline" beside a current relay frame.
-        $connected = $ageSeconds < 300
+        $connected = $ageSeconds < self::RELAY_HEARTBEAT_FRESH_SEC
             || ($relayBms !== null && $relayBms['fresh']);
         // Board attachment: trust the relay's heartbeat flag, but a fresh relay
         // board frame also proves it (covers the gap before the next heartbeat).
@@ -915,6 +922,12 @@ class DashboardController extends Controller
         $volt = $heartbeat->phone_battery_voltage_v;
         $charging = $heartbeat->phone_charging;
         $screenOn = $heartbeat->phone_screen_on;
+
+        $appVersion = $heartbeat->app_ver ?? null;
+        $versionMap = (array) config('relay.version_code_map', []);
+        $versionCode = $appVersion !== null && array_key_exists((string) $appVersion, $versionMap)
+            ? (int) $versionMap[(string) $appVersion]
+            : null;
 
         return ApiResponder::success('relay', [
             'present' => true,
@@ -940,7 +953,9 @@ class DashboardController extends Controller
                 : $ageSeconds,
             'ambient' => $ambient,
             'poll_ms' => $pollMs,
-            'app_ver' => $heartbeat->app_ver ?? null,
+            'app_ver' => $appVersion,
+            'version_code' => $versionCode,
+            'version_code_source' => $versionCode === null ? 'unknown' : 'release_map',
         ]);
     }
 

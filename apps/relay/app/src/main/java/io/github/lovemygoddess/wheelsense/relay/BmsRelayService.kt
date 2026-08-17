@@ -70,15 +70,15 @@ class BmsRelayService : Service() {
         @Volatile var phonePowerText: String = "读取中"
             private set
 
-        /** Liveness ping cadence — only sent while actually online. */
-        private const val HEARTBEAT_MS = 60_000L
+        /** Normal parking heartbeats are sparse; faults become chatty so the
+         * dashboard still detects and explains them promptly. */
+        // A healthy relay reports often enough for liveness without pretending
+        // that Android background delivery is real-time. Alert mode remains 60s.
+        private const val HEARTBEAT_NORMAL_MS = 90_000L
+        private const val HEARTBEAT_ALERT_MS = 60_000L
 
-        /**
-         * GATT 客户端注册泄漏会填满 Android 每进程有限的句柄槽位，
-         * 之后 registerScanner() 直接返回 code=2、connectGatt() 返回 status 257，
-         * 整条 BLE 链路死透，APP 自己怎么重试都没用。唯一出路是让蓝牙栈重新装载。
-         * 自愈动作代价不小（会短暂打断所有蓝牙连接），所以至少间隔 5 分钟一次。
-         */
+        /** Rate-limit degraded-BLE notifications; no automatic Bluetooth or
+         * process kill is allowed because the ANT GATT link must remain alive. */
         private const val BLE_RECOVERY_MIN_INTERVAL_MS = 300_000L
     }
 
@@ -87,6 +87,7 @@ class BmsRelayService : Service() {
 
     private lateinit var store: RelayStore
     private lateinit var uploader: BatchUploader
+    private var powerEvents: PowerEventStore? = null
     private var phoneBattery: PhoneBatteryMonitor? = null
     private var powerBank: PowerBankKeepAlive? = null
     private var deviceSn: String = RelayConfig.DEFAULT_DEVICE_SN
@@ -98,6 +99,7 @@ class BmsRelayService : Service() {
     @Volatile private var lowPowerFromConfig = false
     @Volatile private var thermalLowPower = false
     @Volatile private var powerBankPowered = true
+    @Volatile private var powerBankKeepAliveEnabled = RelayConfig.DEFAULT_POWER_BANK_KEEPALIVE_ENABLED
     @Volatile private var currentThermoMac: String? = null
 
     private var uploadProblem: String? = null
@@ -118,7 +120,15 @@ class BmsRelayService : Service() {
                 // succeeds; suppressing heartbeat creation in that state made
                 // the dashboard say "relay offline" beside live board data.
                 store.enqueueLatestHeartbeat(
-                    bleManager.heartbeatJson(pendingRows = store.pendingCount()),
+                    bleManager.heartbeatJson(
+                        pendingRows = store.pendingCount(),
+                        riding = ridingNow,
+                        // Relay currently has no independent GPS speed feed;
+                        // keep this null rather than inventing a value. When a
+                        // GPS source is added, it can be passed through here.
+                        gpsSpeedMps = null,
+                        uploadIntervalMs = if (::uploader.isInitialized) uploader.uploadIntervalMs else null,
+                    ),
                 )
                 uploader.requestDrain()
                 pendingRows = store.pendingCount()
@@ -143,7 +153,8 @@ class BmsRelayService : Service() {
                 }
             } catch (_: Exception) {
             }
-            mainHandler.postDelayed(this, HEARTBEAT_MS)
+            val alert = !boardConnected || uploadProblem != null || pendingRows > 100
+            mainHandler.postDelayed(this, if (alert) HEARTBEAT_ALERT_MS else HEARTBEAT_NORMAL_MS)
         }
     }
 
@@ -171,9 +182,11 @@ class BmsRelayService : Service() {
         try {
             val cfg = Prefs.load(this)
             currentCfg = cfg
+            powerBankKeepAliveEnabled = cfg.powerBankKeepAliveEnabled
             deviceSn = cfg.deviceSn
 
             store = RelayStore(this)
+            powerEvents = PowerEventStore(this)
             uploader = BatchUploader(this, store).also {
                 it.configure(cfg)
                 it.onStatus = { msg ->
@@ -198,7 +211,7 @@ class BmsRelayService : Service() {
             guard("温湿度") { setupThermo(cfg) }
             guard("远程指令") { setupCommands(cfg) }
 
-            mainHandler.postDelayed(heartbeatRunnable, HEARTBEAT_MS)
+            mainHandler.postDelayed(heartbeatRunnable, HEARTBEAT_ALERT_MS)
 
             pendingRows = store.pendingCount()
             // A backlog surviving a restart is normal now, so say so rather than
@@ -311,6 +324,7 @@ class BmsRelayService : Service() {
                 boardConnected = bleManager.boardConnected,
                 isHeartbeat = false,
                 includeHex = includeHex,
+                riding = ridingNow,
             )
             val seq = store.enqueue(RelayStore.KIND_BMS, json)
             if (seq < 0) uploadProblem = RelayStore.lastError ?: "本地缓存写入失败"
@@ -354,12 +368,14 @@ class BmsRelayService : Service() {
         activeFrameStreak = 0
         quietSinceElapsed = 0L
         bleManager.rideMode = active
+        commandExecutor?.activeMode = active
         updateScannerPowerProfile()
         updateNotif(if (active) "检测到放电电流，切换为骑行高频采样" else "放电结束，切换为停车省电采样")
     }
 
     private fun updateScannerPowerProfile() {
         val scanner = thermo ?: return
+        scanner.setEconomyMode(thermalLowPower || lowPowerFromConfig || !powerBankPowered)
         when {
             ridingNow -> scanner.setHighPerformance(true)
             boardConnected -> scanner.setHighPerformance(false)
@@ -387,7 +403,11 @@ class BmsRelayService : Service() {
         // the heartbeat so a "scan running but 0 results" failure is visible from
         // the dashboard. diagLine() is a MiThermoScanner companion member
         // (shared across the single instance), so read it off the class.
-        bleManager.scannerDiagProvider = { MiThermoScanner.diagLine() }
+        // Heartbeats retain only 200 characters server-side. Use the compact
+        // per-peer diagnostic so BMS state, scan failures, TPMS ages and env
+        // age remain visible without ADB; the full line stays local for the
+        // relay UI/debug log.
+        bleManager.scannerDiagProvider = { thermo?.compactDiagLine() ?: "SCN=INIT" }
         // A wedged stack shows up on either path — scanning (code=2) or
         // connecting (status 257). Both routes lead to the same recovery.
         bleManager.onStackWedged = { code -> recoverWedgedBleStack(code) }
@@ -410,14 +430,17 @@ class BmsRelayService : Service() {
             onDeviceSeen = bleManager::considerDevice,
             tpmsCapturePrefixes = currentCfg.tpmsCapturePrefixes,
             tpmsSurveyMode = currentCfg.tpmsSurveyMode,
+            onTpmsCaptureEnqueued = { uploader.requestDrain() },
+            onEnvEnqueued = { uploader.requestDrain() },
+            knownBmsMacProvider = bleManager::knownBoardMac,
         ).also {
             it.onReading = { r ->
                 // Surface the latest reading in the notification for a quick sanity
                 // check without opening the dashboard.
                 updateNotif("温湿度 ${"%.1f".format(r.tempC)}°C / ${"%.0f".format(r.humidityPct)}%")
             }
-            it.onStackWedged = { code -> recoverWedgedBleStack(code) }
             it.start()
+            it.setEconomyMode(thermalLowPower || lowPowerFromConfig || !powerBankPowered)
             when {
                 ridingNow -> it.setHighPerformance(true)
                 boardConnected -> it.setHighPerformance(false)
@@ -426,27 +449,13 @@ class BmsRelayService : Service() {
         }
     }
 
-    /** elapsedRealtime of the last BLE stack recovery, 0 if never. */
+    /** elapsedRealtime of the last BLE degradation notice, 0 if never. */
     private var lastBleRecoveryAt = 0L
 
     /**
-     * Recover a BLE stack that has run out of client-interface slots.
-     *
-     * Symptom: every startScan returns
-     * SCAN_FAILED_APPLICATION_REGISTRATION_FAILED (2) and every connectGatt
-     * reports status 257, forever. `dumpsys bluetooth_manager` showed 21 GATT
-     * clients registered to this package — leaked handles from an earlier bug.
-     * Android allows roughly 32 per process, so once the table fills nothing
-     * short of releasing those registrations helps. The relay sat blind for
-     * 75 minutes while retrying 1051 times.
-     *
-     * Two tiers, cheapest first:
-     *  1. Restart the bluetooth process (root). The stack drops every
-     *     registration, ours included, and this service stays up — so the
-     *     command channel and the offline queue survive.
-     *  2. No root? Kill our own process. Binder death makes the stack release
-     *     our registrations just the same, and the service is START_STICKY so
-     *     Android restarts it within seconds.
+     * Record BLE degradation without killing the system Bluetooth process or
+     * this service. Scanner retries are serialized by [MiThermoScanner]; GATT
+     * reconnect remains responsible for its own bounded recovery.
      */
     private fun recoverWedgedBleStack(errorCode: Int) {
         val now = SystemClock.elapsedRealtime()
@@ -454,20 +463,8 @@ class BmsRelayService : Service() {
             return
         }
         lastBleRecoveryAt = now
-        Log.e(TAG, "BLE stack wedged (scan code=$errorCode) — restarting bluetooth process")
-        updateNotif("蓝牙栈异常，正在自动恢复...")
-        // runRoot blocks for up to 30 s; onScanFailed runs on the main looper.
-        kotlin.concurrent.thread(isDaemon = true) {
-            val ok = try {
-                commandExecutor?.runRoot("kill \$(pidof com.android.bluetooth)")?.first == true
-            } catch (_: Throwable) {
-                false
-            }
-            if (!ok) {
-                Log.e(TAG, "root recovery failed — restarting own process to free BLE registrations")
-                android.os.Process.killProcess(android.os.Process.myPid())
-            }
-        }
+        Log.e(TAG, "BLE stack degraded (code=$errorCode); scanner/GATT will retry without process kill")
+        updateNotif("蓝牙连接异常，正在后台重试")
     }
 
     /** Re-init the thermo scanner when the remote config changes its MAC. */
@@ -503,15 +500,27 @@ class BmsRelayService : Service() {
 
     private fun setupPowerBank() {
         val battery = phoneBattery ?: return
-        powerBank = PowerBankKeepAlive(this, battery).also { pb ->
+        powerBank = PowerBankKeepAlive(this, battery, powerBankKeepAliveEnabled).also { pb ->
+            pb.restorePowerStateBaseline(powerEvents?.lastPowerPresent())
+            bleManager.powerDiagProvider = { pb.compactDiagnostics() }
+            bleManager.powerBankDiagnosticsProvider = { pb.diagnostics() }
+            pb.powerEventDiagnosticsProvider = { powerEvents?.compact() ?: "dc=0,da=-,dd=-,dm=-" }
             pb.onStatus = { msg -> updateNotif(msg) }
+            pb.onPowerEvent = { event ->
+                // The journal is bounded and synchronous so the final
+                // transition survives a power cut; failures are swallowed by
+                // the store and never affect the V2 worker.
+                try { powerEvents?.record(event) } catch (_: Throwable) { }
+            }
             pb.onPowerStateChanged = { powered ->
                 powerBankPowered = powered
                 // B-2: effective low-power = explicit remote config OR auto when unplugged
                 bleManager.lowPowerMode = thermalLowPower || lowPowerFromConfig || !powered
+                updateScannerPowerProfile()
                 phonePowerText = if (powered) "外部供电" else "电池供电 · 已降频"
             }
             pb.start()
+            powerEvents?.rememberPowerState(battery.sample().externalPowerPresent)
         }
     }
 
@@ -539,8 +548,15 @@ class BmsRelayService : Service() {
         }
         (cfg["low_power"] as? Boolean)?.let {
             lowPowerFromConfig = it
-            // B-2: remote low_power now actually drives sampling speed
+            // Low-power now reduces network/sensor work only. BleManager keeps
+            // the ANT board itself alive at a safe <=30 s cadence.
             bleManager.lowPowerMode = thermalLowPower || lowPowerFromConfig || !powerBankPowered
+            updateScannerPowerProfile()
+        }
+        (cfg["power_bank_keepalive_enabled"] as? Boolean)?.let {
+            powerBankKeepAliveEnabled = it
+            Prefs.setPowerBankKeepAliveEnabled(this, it)
+            powerBank?.enabled = it
         }
         // 轮询：中继 ↔ 服务端拉命令/配置的频率。
         (cfg["poll_ms"] as? Long)?.let {

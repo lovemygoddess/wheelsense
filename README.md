@@ -116,6 +116,16 @@ Demo Mode 适合：
 
 真实设备操作在演示模式下会被拦截或模拟，不会向真实设备发送命令。关闭 Demo Mode 后恢复自托管数据源。
 
+## 🔧 近期工程改进
+
+- 统一的充电状态检测：以驻车 BMS 电流候选、连续证据、行驶/动能回收 veto、结束迟滞和 stale session 边界为基础；所有页面和通知使用同一 canonical 状态。
+- Relay BLE 稳定性：共享扫描器、过滤/发现模式、generation/backoff、已保存设备身份重连，以及可恢复的离线 outbox。
+- TPMS / ENV 数据链路：服务端仅接受已验证协议帧和校验结果；温湿度解析、扫描命中、解析失败和入队状态提供分层诊断，过期读数明确标记为 stale。
+- 电源与后台诊断：保留受条件限制的 best-effort keep-alive、电源事件配对和 heartbeat/pending queue 指标；Android 的省电限制不会被虚假承诺掩盖。
+- Relay OTA 状态：Dashboard 将设备 heartbeat 的 `app_ver` 与服务端维护的 release map 分开比较，未知 versionCode 不会被误判为可更新。
+
+这些能力默认面向自托管部署；具体硬件协议、阈值和 Android 后台行为仍应在目标设备上验证。
+
 ## 🎨 Theme Pack
 
 Theme Pack 与数据逻辑独立，负责颜色、Light / Dark 层级、页面装饰、Dashboard / Widget 视觉和可选 dialogue / artwork 资源。
