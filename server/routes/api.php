@@ -86,6 +86,9 @@ Route::middleware('dashboard.gate')->group(function (): void {
     Route::post('/dashboard/vehicles/{sn}/image', [DashboardController::class, 'uploadVehicleImage']);
     Route::get('/dashboard/vehicles/{sn}/image', [DashboardController::class, 'getVehicleImage']);
     Route::get('/dashboard/bms-relay/status', [DashboardController::class, 'relayStatus']);
+    // Dashboard-only latest Relay release metadata. This is distinct from
+    // the device's current app_ver reported by the heartbeat endpoint.
+    Route::get('/dashboard/bms-relay/apk/info', [RelayApkController::class, 'info']);
     Route::post('/dashboard/bms-relay/command', [RelayCommandController::class, 'issue']);
     Route::get('/dashboard/bms-relay/commands', [RelayCommandController::class, 'listForDashboard']);
     // Relay remote config: dashboard view + save (relay pulls its own via /relay/config).

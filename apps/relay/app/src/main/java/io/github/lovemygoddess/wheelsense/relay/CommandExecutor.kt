@@ -46,6 +46,7 @@ class CommandExecutor(
 
     companion object {
         private const val POLL_INTERVAL_MS = 15_000L
+        private const val ACTIVE_POLL_MAX_MS = 15_000L
         private const val OFFLINE_POLL_INTERVAL_MS = 2 * 60_000L
         private const val CONFIG_REFRESH_MS = 5 * 60_000L
         private const val POLL_PATH = "/api/relay/commands/poll"
@@ -62,6 +63,7 @@ class CommandExecutor(
      * change applies on the very next poll.
      */
     @Volatile var pollIntervalMs: Long = POLL_INTERVAL_MS
+    @Volatile var activeMode: Boolean = false
 
     /** Relay pulls its remote config on every poll cycle. */
     var onConfig: ((Map<String, Any?>) -> Unit)? = null
@@ -78,6 +80,7 @@ class CommandExecutor(
     /** In-memory dedup. poll only returns a command once (pending->dispatched),
      *  but guard against any re-delivery anyway. */
     private val handledIds = mutableSetOf<Long>()
+    private val claimTokens = java.util.concurrent.ConcurrentHashMap<Long, String>()
 
     private val pollRunnable: Runnable = object : Runnable {
         override fun run() {
@@ -87,7 +90,10 @@ class CommandExecutor(
                     if (online) pollOnce()
                 } catch (_: Throwable) {
                 }
-                val delay = if (online) pollIntervalMs else OFFLINE_POLL_INTERVAL_MS
+                val configured = pollIntervalMs
+                val delay = if (online) {
+                    if (activeMode) minOf(configured, ACTIVE_POLL_MAX_MS) else configured
+                } else OFFLINE_POLL_INTERVAL_MS
                 if (running) mainHandler.postDelayed(pollRunnable, delay)
             }
         }
@@ -134,8 +140,10 @@ class CommandExecutor(
             val id = c.optLong("id", -1)
             val command = c.optString("command", "")
             val payload = c.optJSONObject("payload")
-            if (id < 0 || handledIds.contains(id)) continue
+            val claimToken = c.optString("claim_token", "")
+            if (id < 0 || claimToken.isBlank() || handledIds.contains(id)) continue
             handledIds.add(id)
+            claimTokens[id] = claimToken
             worker.execute { execute(id, command, payload) }
         }
         // Configuration changes rarely. Pulling it on every command check
@@ -168,6 +176,11 @@ class CommandExecutor(
         map["upload_ms"] = (cfg.opt("upload_ms") as? Number)?.toLong()
         map["monitor_secs"] = (cfg.opt("monitor_secs") as? Number)?.toLong()
         map["low_power"] = if (cfg.has("low_power")) cfg.optBoolean("low_power") else null
+        map["power_bank_keepalive_enabled"] = if (cfg.has("power_bank_keepalive_enabled")) {
+            cfg.optBoolean("power_bank_keepalive_enabled")
+        } else {
+            null
+        }
         // Key presence matters: a config document that simply omits thermo_mac
         // must NOT be read as "disable the thermo". Only when the key is
         // explicitly present do we hand it down (empty string = disable).
@@ -503,7 +516,7 @@ class CommandExecutor(
      * Confirm a downloaded update APK carries the SAME signing certificate as the
      * package currently installed. PackageInstaller would reject a mismatch too,
      * but we want to fail closed with a clear reason (and the root path wouldn't
-     * reject it at all). Works on Android 8 via the deprecated GET_SIGNATURES.
+     * reject it at all). Works on Android 8 (S7) via the deprecated GET_SIGNATURES.
      */
     private fun signaturesMatch(apk: File): Boolean {
         return try {
@@ -604,6 +617,7 @@ class CommandExecutor(
             }
             writeField("device_sn", deviceSn)
             writeField("command_id", commandId.toString())
+            writeField("claim_token", claimTokens[commandId].orEmpty())
             wr.writeBytes(dash + boundary + crlf)
             val isPng = file.name.lowercase().endsWith(".png")
             wr.writeBytes("Content-Disposition: form-data; name=\"photo\"; filename=\"${file.name}\"$crlf")
@@ -659,11 +673,14 @@ class CommandExecutor(
         }
     }
 
-    /** Report a command as failed (photo success is closed by uploadPhoto). */
-    private fun reportResult(id: Long, error: String) {
+    /** Report commands without structured output; "done" is a successful ack. */
+    private fun reportResult(id: Long, outcome: String) {
+        val succeeded = outcome == "done"
         val body = JSONObject().apply {
-            put("status", "failed")
-            put("error", error)
+            put("device_sn", deviceSn)
+            put("claim_token", claimTokens[id].orEmpty())
+            put("status", if (succeeded) "done" else "failed")
+            if (!succeeded) put("error", outcome)
         }.toString()
         postJson(apiBase + RESULT_PATH.format(id), body, signed = true)
     }
@@ -671,6 +688,8 @@ class CommandExecutor(
     /** Report a command as done, carrying a text `output` back to the dashboard. */
     private fun reportSuccess(id: Long, output: String) {
         val body = JSONObject().apply {
+            put("device_sn", deviceSn)
+            put("claim_token", claimTokens[id].orEmpty())
             put("status", "done")
             put("result", JSONObject().apply { put("output", output) })
         }.toString()

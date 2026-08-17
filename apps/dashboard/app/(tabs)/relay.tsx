@@ -5,7 +5,7 @@
  *  1) 环境温湿度：米家温湿度计（pvvx 固件 0x181A 广播）→ S7 被动扫描 → env_samples。
  *     注意这是车库/尾箱环境温湿度，与电池温度、S7 自身电池温度是三个独立量。
  *  2) 中继手机自身状态：在线/离线、电量、温度（同样不是电池数据）。
- *  3) 远控台：拍照（前/后）、截图、重启中继 App、重启手机、清理积压、
+ *  3) 远控台：截图、重启中继 App、重启手机、清理积压、
  *     模拟按键、交互式截图（在截图上点按=点击/拖动=滑动）、高级 shell。
  *
  * 所有指令都是异步的：下发写进 relay_commands，中继下次轮询（≤15s）取走执行，
@@ -16,27 +16,27 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Animated, GestureResponderEvent, Image, Modal,
-  Pressable, RefreshControl, ScrollView, StyleSheet, Text, View,
+  ActivityIndicator, Alert, Animated, BackHandler, GestureResponderEvent, Image, Modal,
+  Pressable, RefreshControl, ScrollView, StyleSheet, Switch, TextInput, View,
 } from 'react-native';
 import { AppText } from '../../src/components/AppText';
 import { Ionicons } from '@expo/vector-icons';
-import { useIsFocused } from 'expo-router';
+import { useIsFocused, usePathname, useRouter } from 'expo-router';
 import { useAuth } from '../../src/auth';
 import {
-  fetchRelayCommands, fetchRelayStatus, getBaseUrl,
-  issueRelayCommand, rewriteToBase,
+  fetchRelayApkInfo, fetchRelayCommands, fetchRelayStatus, getBaseUrl,
+  getRelayConfig, issueRelayCommand, rewriteToBase, setRelayConfig,
 } from '../../src/api';
 import { getTempWarnC, getTempDangerC } from '../../src/widgetData';
-import type { RelayCommand, RelayStatus } from '../../src/types';
+import type { RelayCommand, RelayConfigData, RelayStatus } from '../../src/types';
+import type { RelayApkInfo } from '../../src/types';
 import { Card } from '../../src/components/Card';
 import { EmptyState } from '../../src/components/EmptyState';
 import { Grid } from '../../src/components/Grid';
 import { MetricTile } from '../../src/components/MetricTile';
 import { SectionHeader } from '../../src/components/SectionHeader';
 import { StatusPill } from '../../src/components/StatusPill';
-import { LinearGradient } from '../../src/components/LinearGradient';
-import { FadeIn, Pulse } from '../../src/components/Motion';
+import { FadeIn } from '../../src/components/Motion';
 import { useHeaderTheme } from '../../src/hooks/useHeaderTheme';
 import { BackButton } from '../../src/components/BackButton';
 import { useResponsive } from '../../src/hooks/useResponsive';
@@ -45,14 +45,19 @@ import { colors, fontMono, fontSize, headerThemes, radius, shadow, spacing, tint
 import { useAppTheme } from '../../src/ThemeProvider';
 import { useVehicleData } from '../../src/vehicleData';
 import { useDemoMode } from '../../src/demo/DemoModeProvider';
+import { compareRelayVersions, relayVersionLabel, type RelayVersionState } from '../../src/relayVersion';
 
 /** 中继轮询间隔 15s，留足两轮 + 上传时间再判超时。 */
 const CMD_POLL_MS = 3_000;
 const STATUS_POLL_MS = 10_000;
+const RIDE_INTERVALS_MS = [1000, 2000, 3000, 5000];
+const IDLE_INTERVALS_SEC = [30, 60, 120, 300, 600];
+const RELAY_POLL_INTERVALS_SEC = [15, 30, 60];
+const MONITOR_INTERVALS_SEC = [0, 30, 60, 120, 180, 300, 600];
+const RELAY_RECOMMENDED = { idleSec: 120, rideMs: 1000, pollSec: 60, monitorSec: 180 };
 
 /** 指令中文名（历史列表 / 截图镜像提示用）。 */
 const CMD_LABEL: Record<string, string> = {
-  photo: '拍照',
   screencap: '截图',
   restart: '重启中继App',
   reboot: '重启手机',
@@ -76,16 +81,30 @@ const KEYS: { label: string; icon: string; code: string }[] = [
   { label: '音量-', icon: 'volume-low-outline', code: '25' },
 ];
 
-export default function RelayScreen() {
+export default function RelayScreen({ navigationContext = 'legacy' }: { navigationContext?: 'more' | 'legacy' } = {}) {
   const { unlocked } = useAuth();
   const { top } = useHeaderTheme(headerThemes.relay);
   const rs = useResponsive();
   const { colors: themeColors } = useAppTheme();
   const { isDemoMode } = useDemoMode();
+  const pathname = usePathname();
+  const router = useRouter();
   const isFocused = useIsFocused();
   const { selectedSn: deviceSn, loading: vehicleLoading } = useVehicleData();
 
   const [relay, setRelay] = useState<RelayStatus | null>(null);
+  const [relayLatest, setRelayLatest] = useState<RelayApkInfo | null>(null);
+  const relayLatestLoadedAtRef = useRef(0);
+  const [relayConfig, setRelayConfigState] = useState<RelayConfigData | null>(null);
+  const [idleSec, setIdleSec] = useState(RELAY_RECOMMENDED.idleSec);
+  const [rideMs, setRideMs] = useState(RELAY_RECOMMENDED.rideMs);
+  const [pollSec, setPollSec] = useState(RELAY_RECOMMENDED.pollSec);
+  const [monitorSec, setMonitorSec] = useState(RELAY_RECOMMENDED.monitorSec);
+  const [lowPower, setLowPower] = useState(true);
+  const [thermoMac, setThermoMac] = useState('');
+  const [savingRelayConfig, setSavingRelayConfig] = useState(false);
+  const [relayConfigMessage, setRelayConfigMessage] = useState<string | null>(null);
+  const [relayConfigError, setRelayConfigError] = useState<string | null>(null);
   const [commands, setCommands] = useState<RelayCommand[]>([]);
   const [base, setBase] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -114,8 +133,32 @@ export default function RelayScreen() {
   const [viewerCommandId, setViewerCommandId] = useState<number | null>(null);
   const [viewerFailed, setViewerFailed] = useState(false);
   const [developerOpen, setDeveloperOpen] = useState(false);
+  const [relaySettingsOpen, setRelaySettingsOpen] = useState(false);
+  const [commandsOpen, setCommandsOpen] = useState(false);
+  const [logsOpen, setLogsOpen] = useState(false);
+  const [relayUpdateState, setRelayUpdateState] = useState<'idle' | 'waiting-heartbeat' | 'updated' | 'failed' | 'unconfirmed'>('idle');
+  const [relayUpdateMessage, setRelayUpdateMessage] = useState<string | null>(null);
+  const updatePollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { getBaseUrl().then(setBase).catch(() => {}); }, []);
+  const refreshRelayLatest = useCallback(async (force = false) => {
+    const now = Date.now();
+    if (!force && now - relayLatestLoadedAtRef.current < 60_000) return;
+    try {
+      const latest = await fetchRelayApkInfo();
+      setRelayLatest(latest);
+      relayLatestLoadedAtRef.current = now;
+    } catch {
+      // Preserve the last known release metadata; the current device status
+      // remains useful when the metadata endpoint is temporarily unavailable.
+    }
+  }, []);
+  useEffect(() => {
+    if (!isFocused) return;
+    void refreshRelayLatest(true);
+    const timer = setInterval(() => { void refreshRelayLatest(); }, 60_000);
+    return () => clearInterval(timer);
+  }, [isFocused, refreshRelayLatest]);
   useEffect(() => {
     (async () => {
       setTempWarnC(await getTempWarnC());
@@ -133,6 +176,7 @@ export default function RelayScreen() {
   useEffect(() => () => {
     commandRunRef.current++;
     if (commandTimerRef.current) clearInterval(commandTimerRef.current);
+    if (updatePollRef.current) clearTimeout(updatePollRef.current);
     busyRef.current = false;
   }, []);
 
@@ -140,6 +184,7 @@ export default function RelayScreen() {
   useEffect(() => {
     commandRunRef.current++;
     if (commandTimerRef.current) clearInterval(commandTimerRef.current);
+    if (updatePollRef.current) clearTimeout(updatePollRef.current);
     commandTimerRef.current = null;
     busyRef.current = false;
     setWorking(null);
@@ -148,6 +193,9 @@ export default function RelayScreen() {
     setMirror(null);
     setViewerUrl(null);
     setViewerCommandId(null);
+    setRelayConfigState(null);
+    setRelayUpdateState('idle');
+    setRelayUpdateMessage(null);
     if (deviceSn) setLoading(true);
   }, [deviceSn]);
 
@@ -157,13 +205,26 @@ export default function RelayScreen() {
     const isCurrent = () => seq === loadSeqRef.current;
     if (isRefresh) setRefreshing(true);
     try {
-      const [r, cs] = await Promise.all([
+      const [r, cs, cfg] = await Promise.all([
         fetchRelayStatus(deviceSn),
         fetchRelayCommands(deviceSn).catch(() => [] as RelayCommand[]),
+        getRelayConfig(deviceSn).catch(() => null),
       ]);
       if (!isCurrent()) return;
       setRelay(r);
-      setCommands(cs);
+      setCommands(cs.filter(c => c.command !== 'photo'));
+      if (cfg) {
+        setRelayConfigState(cfg);
+        setIdleSec(Math.max(1, Math.round(cfg.idle_ms / 1000)));
+        setRideMs(cfg.ride_ms);
+        setLowPower(cfg.low_power);
+        setThermoMac(cfg.thermo_mac ?? '');
+        setPollSec(Math.max(1, Math.round(cfg.poll_ms / 1000)));
+        setMonitorSec(cfg.monitor_secs);
+        setRelayConfigError(null);
+      } else {
+        setRelayConfigError('中继配置暂时无法读取，保留当前页面值');
+      }
       setError(null);
     } catch (e: any) {
       if (isCurrent()) setError(e?.message ?? '加载失败');
@@ -193,7 +254,7 @@ export default function RelayScreen() {
     if (!deviceSn || viewerCommandId == null) return;
     try {
       const cs = await fetchRelayCommands(deviceSn);
-      setCommands(cs);
+      setCommands(cs.filter(c => c.command !== 'photo'));
       const fresh = cs.find(c => c.id === viewerCommandId);
       const url = fresh?.result?.photo_url;
       if (typeof url !== 'string' || !url) throw new Error('服务器未返回新的照片地址');
@@ -255,7 +316,7 @@ export default function RelayScreen() {
           try {
             const cs = await fetchRelayCommands(deviceSn);
             if (commandRunRef.current !== runId) return;
-            setCommands(cs);
+            setCommands(cs.filter(c => c.command !== 'photo'));
             const mine = cs.find(c => c.id === cmdId);
             if (mine?.status === 'dispatched') setStage('dispatched', '中继已取走，正在执行…');
             if (mine?.status === 'done') {
@@ -295,6 +356,134 @@ export default function RelayScreen() {
       });
     })();
   }, [deviceSn, isDemoMode]);
+
+  const saveRelayConfig = useCallback(async () => {
+    if (!deviceSn) return;
+    const mac = thermoMac.trim();
+    if (!isDemoMode && mac !== '' && !/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(mac)) {
+      setRelayConfigError('温湿度计 MAC 格式应为 AA:BB:CC:DD:EE:FF');
+      return;
+    }
+    setSavingRelayConfig(true);
+    setRelayConfigError(null);
+    setRelayConfigMessage(null);
+    try {
+      const normalizedMac = mac === '' ? null : mac.toUpperCase();
+      const previousMac = relayConfig?.thermo_mac?.toUpperCase() ?? null;
+      const payload: Parameters<typeof setRelayConfig>[1] = {
+        idle_ms: idleSec * 1000,
+        ride_ms: rideMs,
+        low_power: lowPower,
+        poll_ms: pollSec * 1000,
+        monitor_secs: monitorSec,
+      };
+      // Do not clear a configured sensor when the field was not edited.
+      if (normalizedMac !== previousMac) payload.thermo_mac = normalizedMac;
+      const next = await setRelayConfig(deviceSn, payload);
+      setRelayConfigState(next);
+      setIdleSec(Math.max(1, Math.round(next.idle_ms / 1000)));
+      setRideMs(next.ride_ms);
+      setLowPower(next.low_power);
+      setThermoMac(next.thermo_mac ?? '');
+      setPollSec(Math.max(1, Math.round(next.poll_ms / 1000)));
+      setMonitorSec(next.monitor_secs);
+      setRelayConfigMessage(isDemoMode
+        ? '演示模式：已更新演示值，不会写入服务器或真实中继。'
+        : relay?.connected === false
+          ? '已保存；中继当前离线，重新联网后会在配置轮询时生效。'
+          : '已保存；中继下一次配置轮询后生效。');
+    } catch (e) {
+      setRelayConfigError(e instanceof Error ? e.message : '保存中继配置失败');
+    } finally {
+      setSavingRelayConfig(false);
+    }
+  }, [deviceSn, idleSec, isDemoMode, lowPower, monitorSec, pollSec, relay?.connected, relayConfig, rideMs, thermoMac]);
+
+  const restoreRecommendedRelay = useCallback(() => {
+    setIdleSec(RELAY_RECOMMENDED.idleSec);
+    setRideMs(RELAY_RECOMMENDED.rideMs);
+    setPollSec(RELAY_RECOMMENDED.pollSec);
+    setMonitorSec(RELAY_RECOMMENDED.monitorSec);
+    setLowPower(true);
+    setRelayConfigMessage('已恢复推荐值；请点击保存后才会下发到服务器。');
+    setRelayConfigError(null);
+  }, []);
+
+  const relayVersionState: RelayVersionState = compareRelayVersions(
+    { versionName: relay?.connected ? relay.app_ver : null, versionCode: relay?.connected ? relay.version_code : null },
+    { versionName: relayLatest?.latest_version_name, versionCode: relayLatest?.latest_version_code },
+  );
+  const currentRelayVersionLabel = relayVersionLabel(relay?.connected ? relay.app_ver : null, relay?.connected ? relay.version_code : null);
+  const latestRelayVersionLabel = relayVersionLabel(relayLatest?.latest_version_name, relayLatest?.latest_version_code);
+
+  const waitForRelayVersion = useCallback(async (baseline: RelayStatus | null, target: RelayApkInfo | null) => {
+    if (!deviceSn) return;
+    setRelayUpdateState('waiting-heartbeat');
+    setRelayUpdateMessage('更新命令已完成，等待中继重新上线确认版本…');
+    const startedAt = Date.now();
+    const poll = async (): Promise<void> => {
+      try {
+        const next = await fetchRelayStatus(deviceSn);
+        setRelay(next);
+        const targetName = target?.latest_version_name ?? null;
+        const targetCode = target?.latest_version_code ?? null;
+        const targetReached = targetCode !== null
+          && next.version_code === targetCode
+          && (targetName === null || next.app_ver === targetName)
+          && (baseline?.version_code !== targetCode || baseline?.app_ver !== targetName);
+        if (targetReached) {
+          setRelayUpdateState('updated');
+          setRelayUpdateMessage(`中继已更新至 ${relayVersionLabel(next.app_ver, next.version_code)}（已由新心跳确认）`);
+          return;
+        }
+      } catch {
+        // Keep waiting; the relay may be restarting during installation.
+      }
+      if (Date.now() - startedAt >= 180_000) {
+        setRelayUpdateState('unconfirmed');
+        setRelayUpdateMessage('更新命令已完成，但尚未从心跳确认目标版本；请稍后刷新，未把命令完成误判为升级成功。');
+        return;
+      }
+      updatePollRef.current = setTimeout(() => { void poll(); }, STATUS_POLL_MS);
+    };
+    await poll();
+  }, [deviceSn]);
+
+  const startRelayUpdate = useCallback(async () => {
+    if (!deviceSn || busy || relayUpdateState === 'waiting-heartbeat') return;
+    if (relayVersionState !== 'UPDATE_AVAILABLE' || !relayLatest?.latest_version_code) return;
+    const baseline = relay;
+    const target = relayLatest;
+    setRelayUpdateState('idle');
+    setRelayUpdateMessage('准备更新…');
+    const command = await runCommand('update_apk', {}, { timeoutMs: 90_000 });
+    if (!command) {
+      setRelayUpdateState('failed');
+      setRelayUpdateMessage('更新指令未完成，请查看指令历史中的真实错误。');
+      return;
+    }
+    if (command.status !== 'done') {
+      setRelayUpdateState('failed');
+      setRelayUpdateMessage(command.error || '中继未报告更新指令成功。');
+      return;
+    }
+    await waitForRelayVersion(baseline, target);
+  }, [busy, deviceSn, relay, relayLatest, relayUpdateState, relayVersionState, runCommand, waitForRelayVersion]);
+
+  const confirmRelayUpdate = useCallback(() => {
+    if (isDemoMode) {
+      Alert.alert('演示模式', '演示模式：不会执行真实设备操作。');
+      return;
+    }
+    Alert.alert(
+      '更新中继固件',
+      '中继将从服务器下载已发布的最新 Relay APK 并安装。更新过程中中继服务会暂时离线，请确认服务器上的更新包已经准备好。',
+      [
+        { text: '取消', style: 'cancel' },
+        { text: '开始更新', onPress: () => { void startRelayUpdate(); } },
+      ],
+    );
+  }, [isDemoMode, startRelayUpdate]);
 
   const connected = relay?.connected === true;
   const relayHealth = !relay?.present
@@ -349,11 +538,41 @@ export default function RelayScreen() {
 
   const anims = useStagger(3);
   const amb = relay?.ambient ?? null;
+  const activeCommand = commands.find(c => c.status === 'pending' || c.status === 'dispatched') ?? null;
+
+  // The legacy top-level /relay entry can still be reached from old deep links
+  // and installs. It is not a child of More's nested stack, so router.back()
+  // would pop to whichever tab happened to be underneath (often Overview).
+  // Keep the canonical More route's normal stack pop, but return legacy entry
+  // points to the Settings root explicitly.
+  const handleBack = useCallback(() => {
+    if (navigationContext === 'more') {
+      // Pop the More-owned stack back to its index.  dismissTo performs a
+      // stack pop (and only falls back to the target route when a legacy deep
+      // link did not create a More stack entry); it never switches to Overview.
+      router.dismissTo('/(tabs)/more');
+      return;
+    }
+    if (pathname === '/relay' || pathname === '/(tabs)/relay') {
+      router.replace('/(tabs)/settings');
+      return;
+    }
+    router.back();
+  }, [navigationContext, pathname, router]);
+
+  useEffect(() => {
+    if (navigationContext !== 'more' || !isFocused) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      handleBack();
+      return true;
+    });
+    return () => sub.remove();
+  }, [handleBack, isFocused, navigationContext]);
 
   if (!deviceSn && (loading || vehicleLoading)) {
     return (
       <ScrollView style={[s.container, { backgroundColor: themeColors.background }]} contentContainerStyle={{ padding: rs.pagePad, paddingTop: top }}>
-        <BackButton />
+        <BackButton onPress={handleBack} />
         <EmptyState
           variant="pulse" icon="radio-outline" title="连接中继…"
           subtitle="正在读取尾箱 S7 的状态与温湿度"
@@ -369,7 +588,7 @@ export default function RelayScreen() {
       contentContainerStyle={{ padding: rs.pagePad, paddingTop: top, paddingBottom: 60 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
     >
-      <BackButton />
+      <BackButton onPress={handleBack} />
       {error && !relay && (
         <EmptyState
           variant="float" icon="alert-circle-outline" title="加载失败" subtitle={error}
@@ -439,7 +658,7 @@ export default function RelayScreen() {
           ) : (
             <AppText style={[s.footNote, { color: themeColors.textMuted }]}>
               尚未收到任何温湿度广播。确认温湿度计已刷 pvvx 固件、广播类型为 Custom，
-              且 MAC 与中继设置里配置的设备一致。
+              且 MAC 与中继设置里填写的传感器地址一致。
             </AppText>
           )}
         </Card>
@@ -493,26 +712,162 @@ export default function RelayScreen() {
                 ? `最后心跳 ${fmtAge((relay.age_seconds ?? 0) * 1000)}`
                 : `中继离线 · 最后心跳 ${fmtAge((relay?.age_seconds ?? 0) * 1000)}`}
           </AppText>
+          <View style={s.relayMetaRow}>
+            <AppText style={[s.relayMetaText, { color: themeColors.textMuted }]}>保护板：{relay?.board_state === 'live' ? '实时' : relay?.board_state === 'connected_stale' ? '已连接·待同步' : relay?.board_state === 'disconnected' ? '未连接' : '—'}</AppText>
+            <AppText style={[s.relayMetaText, { color: themeColors.textMuted }]}>Relay App：{relay?.app_ver ?? '—'}</AppText>
+          </View>
         </Card>
       </Animated.View>
 
-      {/* ── 3. 远控台 ── */}
+      {/* ── 3. Relay 配置：正常状态的基础频率 ── */}
+      <Card style={s.card}>
+        <Pressable onPress={() => setRelaySettingsOpen(v => !v)} style={s.cardHead} accessibilityRole="button" accessibilityLabel="展开或收起中继设置">
+          <View style={s.cardTitleWrap}>
+            <Ionicons name="options-outline" size={18} color={themeColors.primary} />
+            <View>
+              <AppText style={[s.cardTitle, { color: themeColors.textPrimary }]}>中继设置</AppText>
+              {!relaySettingsOpen && <AppText style={[s.configHintSmall, { color: themeColors.textMuted }]}>已连接 · 自动同步 · 电源保护状态见下方</AppText>}
+            </View>
+          </View>
+          <View style={s.cardHeadRight}>
+            <StatusPill
+              label={relayConfig ? '已读取' : '读取中'}
+              icon={relayConfig ? 'checkmark-circle-outline' : 'time-outline'}
+              fg={relayConfig ? themeColors.textSecondary : themeColors.textMuted}
+              bg={themeColors.surfaceSecondary}
+            />
+            <Ionicons name={relaySettingsOpen ? 'chevron-up' : 'chevron-down'} size={17} color={themeColors.textMuted} />
+          </View>
+        </Pressable>
+        {relaySettingsOpen && <>
+        <AppText style={[s.configHint, { color: themeColors.textMuted }]}>以下是正常状态的基础采样 / 轮询值。骑行、充电候选、稳定充电和结束确认时，中继会自动临时提高频率（约 10–15 秒），不会被这些基础设置关闭。</AppText>
+        <AppText style={[s.configGroupLabel, { color: themeColors.textMuted }]}>数据与同步</AppText>
+
+        <RelayPresetField
+          label="骑行时采样间隔"
+          value={rideMs}
+          options={RIDE_INTERVALS_MS}
+          recommended={RELAY_RECOMMENDED.rideMs}
+          format={formatRideInterval}
+          onChange={setRideMs}
+        />
+        <RelayPresetField
+          label="停车时保存 / 上传间隔"
+          value={idleSec}
+          options={IDLE_INTERVALS_SEC}
+          recommended={RELAY_RECOMMENDED.idleSec}
+          format={formatSecondsCompact}
+          onChange={setIdleSec}
+        />
+        <RelayPresetField
+          label="中继与服务器轮询间隔"
+          value={pollSec}
+          options={RELAY_POLL_INTERVALS_SEC}
+          recommended={RELAY_RECOMMENDED.pollSec}
+          format={value => `${value} 秒`}
+          onChange={setPollSec}
+        />
+        <RelayPresetField
+          label="停车后高频监测时长"
+          value={monitorSec}
+          options={MONITOR_INTERVALS_SEC}
+          recommended={RELAY_RECOMMENDED.monitorSec}
+          format={formatSecondsCompact}
+          onChange={setMonitorSec}
+        />
+        <AppText style={[s.configGroupLabel, { color: themeColors.textMuted }]}>电源管理（只读状态）</AppText>
+        <KeepAliveSummary status={parseKeepAliveStatus(relay?.ble_status)} />
+        <View style={s.configToggleRow}>
+          <View style={{ flex: 1, paddingRight: spacing.sm }}>
+            <AppText style={[s.configLabel, { color: themeColors.textPrimary }]}>增强省电模式</AppText>
+            <AppText style={[s.configHintSmall, { color: themeColors.textMuted }]}>降低停车网络与传感器扫描功耗，不降低保护板保活和充电候选监测。</AppText>
+          </View>
+          <Switch value={lowPower} onValueChange={setLowPower} trackColor={{ false: themeColors.border, true: themeColors.primarySoft }} thumbColor={lowPower ? themeColors.primary : themeColors.textDim} />
+        </View>
+        <AppText style={[s.configLabel, { color: themeColors.textPrimary }]}>温湿度计 MAC（可选）</AppText>
+        <TextInput
+          style={[s.configInput, { color: themeColors.textPrimary, backgroundColor: themeColors.surfaceSecondary, borderColor: themeColors.border }]}
+          value={thermoMac}
+          onChangeText={setThermoMac}
+          placeholder="AA:BB:CC:DD:EE:FF"
+          placeholderTextColor={themeColors.textDim}
+          autoCapitalize="characters"
+        />
+        <AppText style={[s.configHintSmall, { color: themeColors.textMuted }]}>留空则不采集环境温湿度。服务器返回的 upload_ms 是实时上行节流，由骑行 / GPS 状态动态调整，不在此重复设置。</AppText>
+        <AppText style={[s.configGroupLabel, { color: themeColors.textMuted }]}>诊断（只读）</AppText>
+        <AppText style={[s.configHintSmall, { color: themeColors.textMuted }]} numberOfLines={3}>{relay?.ble_status ?? '等待中继心跳诊断…'}</AppText>
+        <Pressable style={[s.configPrimaryButton, { backgroundColor: themeColors.primary }, savingRelayConfig && { opacity: 0.55 }]} onPress={() => { void saveRelayConfig(); }} disabled={savingRelayConfig}>
+          <AppText style={s.configPrimaryButtonText}>{savingRelayConfig ? '保存中…' : '保存中继配置'}</AppText>
+        </Pressable>
+        <Pressable style={[s.configSecondaryButton, { borderColor: themeColors.border }]} onPress={restoreRecommendedRelay}>
+          <AppText style={[s.configSecondaryButtonText, { color: themeColors.primary }]}>恢复推荐值（仅回填）</AppText>
+        </Pressable>
+        {relayConfigMessage ? <AppText style={[s.configMessage, { color: themeColors.textSecondary }]}>{relayConfigMessage}</AppText> : null}
+        {relayConfigError ? <AppText style={[s.configMessage, { color: themeColors.danger }]}>{relayConfigError}</AppText> : null}
+        </>}
+      </Card>
+
+      {/* ── 4. 软件与固件 ── */}
+      <Card style={s.card}>
+        <View style={s.cardHead}>
+          <View style={s.cardTitleWrap}>
+            <Ionicons name="cloud-download-outline" size={18} color={themeColors.primary} />
+            <AppText style={[s.cardTitle, { color: themeColors.textPrimary }]}>软件与固件</AppText>
+          </View>
+        </View>
+        <View style={[s.versionRow, { backgroundColor: themeColors.surfaceSecondary }]}>
+          <View style={{ flex: 1 }}>
+            <AppText style={[s.configLabel, { color: themeColors.textPrimary }]}>Relay 固件</AppText>
+            <AppText style={[s.versionValue, { color: themeColors.primary }]}>
+              {relayVersionState === 'UPDATE_AVAILABLE' ? `${latestRelayVersionLabel} 可更新` :
+                relayVersionState === 'UP_TO_DATE' ? latestRelayVersionLabel :
+                  relayVersionState === 'DEVICE_NEWER_THAN_SERVER' ? currentRelayVersionLabel :
+                    relayVersionState === 'UNKNOWN_LATEST_VERSION' ? '服务器最新版本暂无法获取' :
+                      '当前版本暂无法获取'}
+            </AppText>
+          </View>
+          <Ionicons name="hardware-chip-outline" size={24} color={themeColors.primary} />
+        </View>
+        <AppText style={[s.configHintSmall, { color: themeColors.textMuted }]}>当前版本来自 S7 最新心跳；服务器版本来自 Relay latest 发布元数据。版本比较只使用 versionCode。</AppText>
+        <View style={s.relayMetaRow}>
+          <AppText style={[s.relayMetaText, { color: themeColors.textMuted }]}>当前：{currentRelayVersionLabel}</AppText>
+          <AppText style={[s.relayMetaText, { color: themeColors.textMuted }]}>服务器：{latestRelayVersionLabel}</AppText>
+        </View>
+        {relayVersionState === 'UPDATE_AVAILABLE' && (
+          <Pressable
+            style={[s.configPrimaryButton, { backgroundColor: themeColors.primary }, (busy || relayUpdateState === 'waiting-heartbeat') && { opacity: 0.55 }]}
+            onPress={confirmRelayUpdate}
+            disabled={busy || relayUpdateState === 'waiting-heartbeat'}
+          >
+            <Ionicons name="download-outline" size={16} color="#fff" />
+            <AppText style={s.configPrimaryButtonText}>{relayUpdateState === 'waiting-heartbeat' ? '等待新心跳确认…' : '立即更新'}</AppText>
+          </Pressable>
+        )}
+        {relayVersionState === 'UP_TO_DATE' && <AppText style={[s.configMessage, { color: themeColors.textSecondary }]}>已是最新版本</AppText>}
+        {relayVersionState === 'DEVICE_NEWER_THAN_SERVER' && <AppText style={[s.configMessage, { color: themeColors.textMuted }]}>设备版本较新，不提供默认降级。</AppText>}
+        {relayUpdateMessage ? <AppText style={[s.configMessage, { color: relayUpdateState === 'failed' ? themeColors.danger : relayUpdateState === 'updated' ? themeColors.textSecondary : themeColors.textMuted }]}>{relayUpdateMessage}</AppText> : null}
+      </Card>
+
+      {/* ── 5. 命令执行状态 ── */}
       <Animated.View style={enterStyle(anims[2])}>
-        <LinearGradient from={themeColors.primary} to={themeColors.info} style={s.hero} steps={24}>
-          <View style={s.heroTop}>
+        <Card style={s.card}>
+          <View style={s.cardHead}>
             <View style={{ flex: 1 }}>
-              <AppText style={s.heroTitle}>远程看看车辆</AppText>
-              <AppText style={s.heroSub}>让尾箱里的中继手机拍一张现场照片</AppText>
+              <View style={s.cardTitleWrap}>
+                <Ionicons name="pulse-outline" size={18} color={themeColors.primary} />
+                <AppText style={[s.cardTitle, { color: themeColors.textPrimary }]}>命令执行状态</AppText>
+              </View>
+              <AppText style={[s.configHintSmall, { color: themeColors.textMuted }]}>
+                {working ? (working.stage || '执行中…') : activeCommand ? `${CMD_LABEL[activeCommand.command] ?? activeCommand.command} · ${statusLabel(activeCommand.status)}` : '暂无正在执行的命令'}
+              </AppText>
             </View>
             {busy && (
-              <Pulse active minOpacity={0.35} scaleTo={1.25}>
-                <View style={s.heroIcon}><Ionicons name="sync-outline" size={20} color="#fff" /></View>
-              </Pulse>
+              <ActivityIndicator size="small" color={themeColors.primary} />
             )}
           </View>
 
           {busy && (
-            <View style={[s.commandProgressWrap, { backgroundColor: themeColors.surface }]}>
+            <View style={[s.commandProgressWrap, { backgroundColor: themeColors.surfaceSecondary }]}>
               <View style={s.heroBtnRow}>
                 <ActivityIndicator size="small" color={themeColors.primary} />
                 <AppText style={[s.heroBtnText, { color: themeColors.primary }]}>{working?.stage || '执行中…'}</AppText>
@@ -521,32 +876,31 @@ export default function RelayScreen() {
             </View>
           )}
 
-          <AppText style={s.heroNote}>
-            {connected
-              ? '中继在线：约 15 秒内取走指令并执行'
-              : '中继离线：指令会排队（24 小时有效），S7 恢复联网后自动执行'}
-          </AppText>
-        </LinearGradient>
+          {!busy && activeCommand && (
+            <AppText style={[s.footNote, { color: themeColors.textMuted }]}>
+              提交于 {fmtTime(activeCommand.created_at)} · {connected ? '中继在线，等待状态更新' : '中继离线，等待恢复联网'}
+            </AppText>
+          )}
+        </Card>
       </Animated.View>
-
-      {/* 日常入口只保留拍照；系统控制统一收进高级工具。 */}
-      <Card style={s.card}>
-        <SectionHeader icon="camera-outline" title="拍照记录" badge={connected ? '可用' : '恢复联网后执行'} badgeTone={connected ? 'emerald' : 'gray'} style={{ marginBottom: spacing.md }} />
-        <Grid cols={2} gap={spacing.sm}>
-          <RcTile icon="camera-outline" label="拍摄车辆周围" disabled={busy} onPress={() => void runCommand('photo', { facing: 'back' }, { timeoutMs: 90_000 }).then(showImg)} />
-          <RcTile icon="person-outline" label="拍摄尾箱内部" disabled={busy} onPress={() => void runCommand('photo', { facing: 'front' }, { timeoutMs: 90_000 }).then(showImg)} />
-        </Grid>
-      </Card>
 
       <Card style={s.card}>
         <Pressable onPress={() => setDeveloperOpen(v => !v)} style={s.advancedToggle}>
           <View style={[s.advancedIcon, { backgroundColor: themeColors.primarySoft }]}><Ionicons name="construct-outline" size={18} color={themeColors.primary} /></View>
-          <View style={{ flex: 1 }}><AppText style={[s.cardTitle, { color: themeColors.textPrimary }]}>高级远控工具</AppText><AppText style={[s.advancedSub, { color: themeColors.textMuted }]}>截图、重启、模拟按键与指令记录</AppText></View>
+          <View style={{ flex: 1 }}><AppText style={[s.cardTitle, { color: themeColors.textPrimary }]}>高级远控</AppText><AppText style={[s.advancedSub, { color: themeColors.textMuted }]}>命令、日志与诊断工具</AppText></View>
           <Ionicons name={developerOpen ? 'chevron-up' : 'chevron-down'} size={17} color={themeColors.textMuted} />
         </Pressable>
       </Card>
 
       {developerOpen && <>
+      <Card style={s.card}>
+        <Pressable onPress={() => setCommandsOpen(v => !v)} style={s.advancedToggle} accessibilityRole="button" accessibilityLabel="展开或收起命令">
+          <View style={[s.advancedIcon, { backgroundColor: themeColors.primarySoft }]}><Ionicons name="terminal-outline" size={18} color={themeColors.primary} /></View>
+          <View style={{ flex: 1 }}><AppText style={[s.cardTitle, { color: themeColors.textPrimary }]}>命令</AppText><AppText style={[s.advancedSub, { color: themeColors.textMuted }]}>截图、系统维护与安全按键</AppText></View>
+          <Ionicons name={commandsOpen ? 'chevron-up' : 'chevron-down'} size={17} color={themeColors.textMuted} />
+        </Pressable>
+      </Card>
+      {commandsOpen && <>
       <Card style={s.card}>
         <SectionHeader icon="terminal-outline" title="系统操作" badge="开发者" badgeTone="gray" style={{ marginBottom: spacing.md }} />
         <Grid cols={3} gap={spacing.sm}>
@@ -601,10 +955,19 @@ export default function RelayScreen() {
         </Card>
       )}
 
-      {/* 指令历史（所有类型） */}
+      </>}
+
+      <Card style={s.card}>
+        <Pressable onPress={() => setLogsOpen(v => !v)} style={s.advancedToggle} accessibilityRole="button" accessibilityLabel="展开或收起日志">
+          <View style={[s.advancedIcon, { backgroundColor: themeColors.primarySoft }]}><Ionicons name="list-outline" size={18} color={themeColors.primary} /></View>
+          <View style={{ flex: 1 }}><AppText style={[s.cardTitle, { color: themeColors.textPrimary }]}>日志</AppText><AppText style={[s.advancedSub, { color: themeColors.textMuted }]}>命令与连接事件历史</AppText></View>
+          <Ionicons name={logsOpen ? 'chevron-up' : 'chevron-down'} size={17} color={themeColors.textMuted} />
+        </Pressable>
+      </Card>
+      {logsOpen && <>
       <SectionHeader
         icon="time-outline"
-        title="指令历史"
+        title="命令日志"
         accessory={commands.length > 0 ? <AppText style={[s.sectionCount, { color: themeColors.textMuted }]}>共 {commands.length} 条</AppText> : undefined}
         style={{ marginTop: spacing.lg, marginBottom: spacing.md }}
       />
@@ -622,6 +985,7 @@ export default function RelayScreen() {
           </FadeIn>
         ))
       )}
+      </>}
       </>}
 
       {/* 全屏看图 */}
@@ -650,12 +1014,52 @@ export default function RelayScreen() {
     </ScrollView>
   );
 
-  /** 拍照/截图完成后若带 photo_url，直接进全屏看图。 */
-  function showImg(c?: RelayCommand | null) {
-    const url = c?.result?.photo_url;
-    if (typeof url === 'string' && url) openViewer(url, c?.id);
-    else if (c?.status === 'done') Alert.alert('已拍照', '中继报告完成，但没有回传照片地址');
-  }
+}
+
+function RelayPresetField({ label, value, options, recommended, format, onChange }: {
+  label: string;
+  value: number;
+  options: number[];
+  recommended: number;
+  format: (value: number) => string;
+  onChange: (value: number) => void;
+}) {
+  const { colors: c } = useAppTheme();
+  return (
+    <View style={s.presetField}>
+      <View style={s.presetFieldHead}>
+        <AppText style={[s.configLabel, { color: c.textPrimary }]}>{label}</AppText>
+        <AppText style={[s.presetValue, { color: c.primary }]}>{format(value)}</AppText>
+      </View>
+      <View style={s.presetOptions}>
+        {options.map(option => {
+          const selected = option === value;
+          return (
+            <Pressable
+              key={option}
+              onPress={() => onChange(option)}
+              style={[s.presetOption, { borderColor: selected ? c.primary : c.border, backgroundColor: selected ? c.primarySoft : c.surfaceSecondary }]}
+            >
+              <AppText style={[s.presetOptionText, { color: selected ? c.primary : c.textMuted }]}>{format(option)}</AppText>
+            </Pressable>
+          );
+        })}
+      </View>
+      <Pressable onPress={() => onChange(recommended)} hitSlop={6}>
+        <AppText style={[s.recommendedText, { color: c.textMuted }]}>推荐 {format(recommended)}</AppText>
+      </Pressable>
+    </View>
+  );
+}
+
+function formatRideInterval(ms: number): string {
+  return ms < 1000 ? `${ms} ms` : `${Number((ms / 1000).toFixed(2))} 秒`;
+}
+
+function formatSecondsCompact(sec: number): string {
+  if (sec === 0) return '立即降频';
+  if (sec < 60) return `${sec} 秒`;
+  return `${Number((sec / 60).toFixed(1))} 分钟`;
 }
 
 /** 远控台按钮（网格单元，填充整格）。 */
@@ -796,10 +1200,68 @@ function fmtTime(iso: string | null): string {
   return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+function statusLabel(status: string): string {
+  return STATUS_TONE[status]?.label ?? status;
+}
+
+type KeepAliveStatus = {
+  ext: string;
+  battery: string;
+  charging: string;
+  temp: string;
+  ka: string;
+  wakeLock: string;
+  pulseAge: string;
+  pulseCount: string;
+  delayMax: string;
+};
+
+function parseKeepAliveStatus(raw: string | null | undefined): KeepAliveStatus | null {
+  if (!raw) return null;
+  const power = raw.match(/PWR:([^ ]+)/)?.[1] ?? raw;
+  return {
+    ext: takeFrom(power, 'ext'),
+    battery: takeFrom(power, 'bat'),
+    charging: takeFrom(power, 'chg'),
+    temp: takeFrom(power, 'temp'),
+    ka: takeFrom(power, 'KA'),
+    wakeLock: takeFrom(power, 'WL'),
+    pulseAge: takeFrom(power, 'pulseAge'),
+    pulseCount: takeFrom(power, 'pc'),
+    delayMax: takeFrom(power, 'delayMax'),
+  };
+}
+
+function takeFrom(raw: string, key: string): string {
+  return raw.match(new RegExp(`${key}=([^,\\s]+)`))?.[1] ?? '—';
+}
+
+function KeepAliveSummary({ status }: { status: KeepAliveStatus | null }) {
+  const { colors: c } = useAppTheme();
+  if (!status) return <AppText style={[s.configHintSmall, { color: c.textMuted }]}>等待 Relay V2 心跳诊断…</AppText>;
+  return (
+    <View style={[s.keepAliveBox, { backgroundColor: c.surfaceSecondary, borderColor: c.borderSubtle }]}>
+      <View style={s.keepAliveRow}>
+        <AppText style={[s.keepAliveLabel, { color: c.textMuted }]}>Keep-Alive</AppText>
+        <AppText style={[s.keepAliveValue, { color: status.ka === 'ON' ? c.textSecondary : c.textMuted }]}>{status.ka} · WL {status.wakeLock}</AppText>
+      </View>
+      <View style={s.keepAliveRow}>
+        <AppText style={[s.keepAliveLabel, { color: c.textMuted }]}>供电 / 电量</AppText>
+        <AppText style={[s.keepAliveValue, { color: c.textPrimary }]}>{status.ext === '1' ? '外部供电' : '未检测到外部供电'} · {status.battery}% · {status.temp}°C</AppText>
+      </View>
+      <View style={s.keepAliveRow}>
+        <AppText style={[s.keepAliveLabel, { color: c.textMuted }]}>脉冲 / 调度</AppText>
+        <AppText style={[s.keepAliveValue, { color: c.textPrimary }]}>age {status.pulseAge}s · #{status.pulseCount} · max {status.delayMax}ms</AppText>
+      </View>
+    </View>
+  );
+}
+
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   card: { marginBottom: spacing.md },
   cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md },
+  cardHeadRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   cardTitleWrap: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   cardTitle: { fontSize: fontSize.md, fontWeight: '700', color: colors.text },
   pills: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -809,6 +1271,32 @@ const s = StyleSheet.create({
   relayHealthText: { fontSize: fontSize.xs, color: colors.textSecondary, marginTop: 2 },
   divider: { height: 1, backgroundColor: colors.borderLight, marginVertical: spacing.sm },
   footNote: { fontSize: fontSize.xs, color: colors.textMuted, textAlign: 'center', marginTop: spacing.md, lineHeight: 16 },
+  relayMetaRow: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm, marginTop: spacing.sm },
+  relayMetaText: { flex: 1, fontSize: fontSize.xs, lineHeight: 16 },
+  configHint: { fontSize: fontSize.xs, lineHeight: 17, marginBottom: spacing.md },
+  configHintSmall: { fontSize: fontSize.xs, lineHeight: 16, marginTop: 5 },
+  configGroupLabel: { fontSize: fontSize.xs, fontWeight: '800', letterSpacing: 0.4, marginTop: spacing.md, marginBottom: spacing.xs },
+  configLabel: { fontSize: fontSize.sm, fontWeight: '700' },
+  configInput: { borderWidth: 1, borderRadius: radius.lg, paddingHorizontal: spacing.md, paddingVertical: 10, marginTop: spacing.xs, fontSize: fontSize.sm, fontFamily: fontMono },
+  configToggleRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.sm },
+  configPrimaryButton: { minHeight: 44, borderRadius: radius.lg, marginTop: spacing.md, paddingHorizontal: spacing.md, flexDirection: 'row', gap: 7, alignItems: 'center', justifyContent: 'center' },
+  configPrimaryButtonText: { color: '#fff', fontSize: fontSize.sm, fontWeight: '700' },
+  configSecondaryButton: { minHeight: 42, borderWidth: 1, borderRadius: radius.lg, marginTop: spacing.sm, alignItems: 'center', justifyContent: 'center' },
+  configSecondaryButtonText: { fontSize: fontSize.sm, fontWeight: '600' },
+  configMessage: { fontSize: fontSize.xs, lineHeight: 16, marginTop: spacing.sm },
+  keepAliveBox: { borderRadius: radius.lg, borderWidth: 1, padding: spacing.sm, marginBottom: spacing.sm },
+  keepAliveRow: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm, paddingVertical: 4 },
+  keepAliveLabel: { fontSize: fontSize.xs },
+  keepAliveValue: { flex: 1, textAlign: 'right', fontSize: fontSize.xs, fontFamily: fontMono, fontWeight: '700' },
+  presetField: { marginBottom: spacing.md },
+  presetFieldHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
+  presetValue: { fontSize: fontSize.sm, fontWeight: '800', fontFamily: fontMono },
+  presetOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.sm },
+  presetOption: { borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing.sm, paddingVertical: 7 },
+  presetOptionText: { fontSize: fontSize.xs, fontWeight: '600' },
+  recommendedText: { alignSelf: 'flex-end', fontSize: fontSize.xs, marginTop: spacing.xs },
+  versionRow: { borderRadius: radius.lg, padding: spacing.md, flexDirection: 'row', alignItems: 'center' },
+  versionValue: { fontSize: fontSize.xl, fontWeight: '800', fontFamily: fontMono, marginTop: 3 },
   advancedToggle: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   advancedIcon: { width: 38, height: 38, borderRadius: radius.md, backgroundColor: colors.cardAlt, justifyContent: 'center', alignItems: 'center' },
   advancedSub: { color: colors.textMuted, fontSize: fontSize.xs, marginTop: 2 },

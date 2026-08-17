@@ -84,7 +84,8 @@ class WidgetSummaryController extends Controller
         $relayCharging = $relayLive
             && $relayBms['current_a'] !== null
             && (float) $relayBms['current_a'] >= 0.3;
-        $chargeActive = $relayCharging || $snapshot->charging_state === 1;
+        $chargingState = app(\App\Services\Battery\ChargingStateService::class)->current($device->sn);
+        $chargeActive = (bool) $chargingState['active'];
         $chargeVoltage = $relayLive && $relayBms['total_voltage_v'] !== null
             ? (float) $relayBms['total_voltage_v']
             : ($snapshot->bms_voltage !== null ? (float) $snapshot->bms_voltage : null);
@@ -172,6 +173,8 @@ class WidgetSummaryController extends Controller
             'endurance' => $snapshot->estimate_mileage !== null ? (float) $snapshot->estimate_mileage : null,
             'calibrated_endurance_km' => $calibratedEndurance,
             'charging' => $chargeActive,
+            'charging_started_at' => $chargingState['started_at'] ?? null,
+            'charging_state' => $chargingState['state'] ?? 'idle',
             'bms_voltage' => $snapshot->bms_voltage !== null ? (float) $snapshot->bms_voltage : null,
             'batt_temp' => $snapshot->batt_temp !== null ? (float) $snapshot->batt_temp : null,
             // 有效循环数 = 用户基线 + 累计放电能量÷容量（bms_cycle_support=false，

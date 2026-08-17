@@ -38,7 +38,7 @@ class RelayStore(ctx: Context) : SQLiteOpenHelper(ctx.applicationContext, DB_NAM
         const val KIND_ENV = "env"
 
         /**
-         * Raw BLE advertisement PDU captured from the Z07 tire-pressure/temp
+         * Raw BLE advertisement PDU captured from compatible tire-pressure/temp
          * sensors, for off-device reverse-engineering of the pressure/temp
          * encoding. Debug-only — Task #9 replaces it with parsed fields.
          */
@@ -83,10 +83,32 @@ class RelayStore(ctx: Context) : SQLiteOpenHelper(ctx.applicationContext, DB_NAM
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        // No schema migrations yet; the outbox is transient by nature, so a
-        // rebuild is acceptable and far safer than a half-applied migration.
-        db.execSQL("DROP TABLE IF EXISTS outbox")
-        onCreate(db)
+        // The outbox is durable telemetry, not disposable cache. Never drop it
+        // during an APK upgrade: rows may be the only copy waiting for a Wi-Fi
+        // window. Every future schema version must add an explicit, tested step
+        // below. Failing closed is safer than silently losing samples.
+        if (oldVersion > newVersion) {
+            throw IllegalStateException("Cannot downgrade relay outbox $oldVersion -> $newVersion")
+        }
+        var version = oldVersion
+        while (version < newVersion) {
+            when (version) {
+                // DB_VERSION is intentionally still 1. When version 2 is
+                // introduced, replace this guard with a transactional
+                // migrateV1ToV2(db) implementation before shipping it.
+                1 -> throw IllegalStateException(
+                    "Missing explicit relay outbox migration for 1 -> $newVersion"
+                )
+                else -> throw IllegalStateException(
+                    "Unknown relay outbox schema version: $version"
+                )
+            }
+            version++
+        }
+    }
+
+    override fun onDowngrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        throw IllegalStateException("Relay outbox downgrade is not supported: $oldVersion -> $newVersion")
     }
 
     override fun onConfigure(db: SQLiteDatabase) {

@@ -87,6 +87,8 @@ class BmsLiveSnapshotController extends Controller
             'phone_charging'          => ['nullable', 'boolean'],
             'phone_battery_voltage_v' => ['nullable', 'numeric'],
             'phone_screen_on'         => ['nullable', 'boolean'],
+            'riding'                  => ['nullable', 'boolean'],
+            'gps_speed_mps'           => ['nullable', 'numeric', 'min:0'],
             // Relay-reported liveness flags (optional). board_connected tells
             // the dashboard whether the ANT board was attached when this report
             // was produced; is_heartbeat marks the rolling phone-status row.
@@ -145,6 +147,8 @@ class BmsLiveSnapshotController extends Controller
             'phone_charging'          => $data['phone_charging'] ?? null,
             'phone_battery_voltage_v' => $data['phone_battery_voltage_v'] ?? null,
             'phone_screen_on'         => $data['phone_screen_on'] ?? null,
+            'riding'                => array_key_exists('riding', $data) ? (! empty($data['riding']) ? 1 : 0) : null,
+            'gps_speed_mps'         => $data['gps_speed_mps'] ?? null,
             'board_connected'       => ! empty($data['board_connected']),
             // Only the dashboard phone (BMS tab, reading the board over its
             // own BLE) posts here now — the dedicated relay uses /relay/batch. Tag it so
@@ -183,13 +187,15 @@ class BmsLiveSnapshotController extends Controller
         } else {
             $snap = BmsLiveSnapshot::create($attrs + ['is_heartbeat' => 0]);
             if (! empty($data['crc_ok'])) {
-                app(\App\Services\Battery\BmsChargeSessionService::class)->ingest(
+                app(\App\Services\Battery\ChargingStateService::class)->ingest(
                     $data['device_sn'],
                     $capturedAt,
                     $packVoltage,
                     $packCurrent,
                     isset($data['soc_pct']) ? (float) $data['soc_pct'] : null,
                     $data['temps_c'] ?? null,
+                    array_key_exists('riding', $data) ? (bool) $data['riding'] : null,
+                    isset($data['gps_speed_mps']) ? (float) $data['gps_speed_mps'] : null,
                 );
             }
         }

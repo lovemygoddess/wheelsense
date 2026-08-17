@@ -21,12 +21,23 @@ Token 和 HMAC 必须成对轮换。可先填写 `*_NEXT` 容忍新旧中继，�
 
 ## TPMS
 
-前后轮传感器 MAC 分别填入 `TPMS_FRONT_MAC` 和 `TPMS_REAR_MAC`。胎温按 `T = slope × byte1 + intercept` 解码，默认参数只是通用起点，必须用可信温度计做自身设备标定。
+前后轮传感器 MAC 分别填入 `TPMS_FRONT_MAC` 和 `TPMS_REAR_MAC`；仓库不提供任何真实设备标识。当前受支持的 JH 0x1E01 manufacturer frame 使用固定校验 `byte0 + byte1 + byte2 = 224`，其中 `byte0` 解为温度（`byte0 - 40` °C），`byte1` 解为压力（`byte1 × 0.02` bar）。服务端只接受校验通过的帧，并在超过 freshness 窗口后标记 `stale`。目标设备的广播格式应先用可信仪器验证，不要把这套公式套用于其它传感器。
+
+Relay 版本比较使用 heartbeat 的 `app_ver` 与服务器侧 release metadata；未知版本不会自动推导或触发更新。
 
 ## APK 更新文件
 
 - 中继：`storage/app/bms-relay-latest.apk`
 - 仪表盘：`storage/app/dashboard-latest.apk`
+
+中继版本比较不从 APK 文件名猜测版本。部署者可以在中继 APK 旁放置
+`storage/app/bms-relay-latest.json`，填写 `version_name`、`version_code`、
+`release_notes` 等发布元数据；没有元数据时，服务端会返回未知版本，Dashboard
+不会把未知版本误判为可更新。示例（不含真实地址、设备标识或凭证）：
+
+```json
+{"version_name":"1.0.0","version_code":1,"release_notes":"Example release"}
+```
 
 Docker 部署对应主机目录为 `data/storage/app/`。应用覆盖安装必须保持 application ID 和签名证书不变，版本号必须递增。
 

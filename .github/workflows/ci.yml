@@ -30,6 +30,10 @@ jobs:
       - run: php tests/TelemetryContractTest.php
         env:
           DB_DATABASE: /tmp/evtelemetry/database.sqlite
+      - run: php tests/ChargingStateDetectorTest.php
+      - run: php tests/TpmsControllerTest.php
+        env:
+          DB_DATABASE: /tmp/evtelemetry/database.sqlite
 
   dashboard:
     runs-on: ubuntu-latest

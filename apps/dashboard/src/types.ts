@@ -170,6 +170,20 @@ export interface RelayStatus {
   ambient: AmbientReading | null;
   /** 中继 APK 当前版本号（来自 S7 心跳上报的 app_ver）；中继从未上报过 → null。 */
   app_ver: string | null;
+  /** versionCode from the heartbeat or a server-side official release map. */
+  version_code: number | null;
+  /** heartbeat | release_map | unknown. Unknown never implies an update. */
+  version_code_source?: 'heartbeat' | 'release_map' | 'unknown' | string;
+}
+
+export interface RelayApkInfo {
+  exists: boolean;
+  latest_version_name: string | null;
+  latest_version_code: number | null;
+  size?: number | null;
+  published_at?: string | null;
+  sha256?: string | null;
+  release_notes?: string | null;
 }
 
 /** 下发给中继手机的远控指令（当前仅拍照）。 */

@@ -14,7 +14,7 @@ import {
   getDemoWeather, DEMO_SN,
 } from './demo/demoData';
 import type {
-  Account, AuthStatus, BatteryOverview, RelayCommand, RelayConfigData, RelayConfigInput, RelayStatus, Ride, RidesResponse,
+  Account, AuthStatus, BatteryOverview, RelayApkInfo, RelayCommand, RelayConfigData, RelayConfigInput, RelayStatus, Ride, RidesResponse,
   SettingsPayload, Snapshot, TrailSpeedAnalysis, Vehicle,
 } from './types';
 
@@ -311,6 +311,15 @@ export async function fetchRelayStatus(
     `/api/dashboard/bms-relay/status?${params.toString()}`,
     { timeoutMs: 15_000 },
   )).relay;
+}
+
+/** Latest Relay release metadata. This is separate from the device heartbeat
+ * so an unknown/custom app_ver cannot be mistaken for an updateable build. */
+export async function fetchRelayApkInfo(): Promise<RelayApkInfo> {
+  return (await request<{ relay_apk: RelayApkInfo }>(
+    '/api/dashboard/bms-relay/apk/info',
+    { timeoutMs: 15_000 },
+  )).relay_apk;
 }
 
 // ── 中继远控（拍照）──

@@ -98,7 +98,7 @@ export function getDemoRelay(now = Date.now()): RelayStatus {
     bms: getDemoBms(now), phone_battery_level_pct: 86, phone_battery_temp_c: 32.4 + Math.sin(elapsedSeconds(now) / 25) * 0.2,
     phone_charging: false, phone_battery_voltage_v: 4.08, phone_screen_on: true, last_report_at: isoNow(now), age_seconds: 0,
     poll_ms: 5000, ambient: { temp_c: 26.8, humidity_pct: 54, sensor_battery_mv: 2980, rssi: -48, fresh: true, age_seconds: 0, captured_at: isoNow(now) },
-    app_ver: 'demo-relay 1.0',
+    app_ver: 'demo-relay 1.0', version_code: null, version_code_source: 'unknown',
   };
 }
 
